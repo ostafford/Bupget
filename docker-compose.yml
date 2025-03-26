@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Web application service
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+    command: >
+      sh -c "flask db upgrade &&
+             flask run --host=0.0.0.0"
+
+  # Database service (PostgreSQL)
+  db:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: budget_app
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
