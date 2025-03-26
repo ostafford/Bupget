@@ -1,0 +1,2 @@
+# This file ensures the static/js directory exists in git
+# It can be removed once actual JS files are added

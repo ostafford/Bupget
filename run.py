@@ -9,9 +9,8 @@ import os
 from app import create_app
 
 # Determine which configuration to use
-# The FLASK_ENV environment variable can be set to 'development', 'testing',
-# or 'production' to specify which configuration to use
-config_name = os.environ.get('FLASK_ENV', 'development')
+# Use FLASK_CONFIG instead of deprecated FLASK_ENV
+config_name = os.environ.get('FLASK_CONFIG', 'development')
 
 # Create an application instance with the specified configuration
 app = create_app(config_name)

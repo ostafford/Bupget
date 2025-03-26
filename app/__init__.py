@@ -40,6 +40,10 @@ def create_app(config_name='development'):
     # Register error handlers
     register_error_handlers(app)
     
+    # Register CLI commands
+    from app.commands import register_commands
+    register_commands(app)
+    
     # Return the configured app
     return app
 
