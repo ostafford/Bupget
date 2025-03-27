@@ -9,7 +9,11 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.extensions import db
+from app.utils.crypto import encrypt_token, decrypt_token
 
+# Up Bank API token (encrypted in database)
+up_bank_token = db.Column(db.String(255), nullable=True)
+up_bank_connected_at = db.Column(db.DateTime, nullable=True)
 
 class User(db.Model, UserMixin):
     """
@@ -85,26 +89,22 @@ class User(db.Model, UserMixin):
         """
         Set the Up Bank API token.
         
-        In a production environment, this would be encrypted.
-        
         Args:
             token: The Up Bank personal access token
         """
-        # TODO: Implement proper encryption for the token
-        self.up_bank_token = token
+        # Encrypt the token before storage
+        self.up_bank_token = encrypt_token(token)
         db.session.commit()
     
     def get_up_bank_token(self):
         """
         Get the Up Bank API token.
         
-        In a production environment, this would be decrypted.
-        
         Returns:
             The Up Bank personal access token
         """
-        # TODO: Implement proper decryption for the token
-        return self.up_bank_token
+        # Decrypt the token for use
+        return decrypt_token(self.up_bank_token)
     
     def get_preference(self, key, default=None):
         """

@@ -8,6 +8,7 @@ which provide integration with external services like Up Bank.
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.services.bank_service import connect_up_bank, sync_accounts, sync_transactions
+from app.services.auth_service import validate_up_bank_token, store_up_bank_token, get_up_bank_connection_status
 
 # Create the blueprint
 api_bp = Blueprint('api', __name__)
