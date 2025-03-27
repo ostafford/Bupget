@@ -44,6 +44,11 @@ def create_app(config_name='development'):
     from app.commands import register_commands
     register_commands(app)
     
+    # Initialize encryption key
+    with app.app_context():
+        from app.utils.crypto import init_encryption_key
+        init_encryption_key()
+    
     # Return the configured app
     return app
 

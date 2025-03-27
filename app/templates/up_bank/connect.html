@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}Connect to Up Bank{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Connect to Up Bank</h4>
+                </div>
+                <div class="card-body">
+                    <p class="mb-4">
+                        Enter your Up Bank personal access token to connect your account. 
+                        Your token is securely encrypted before being stored.
+                    </p>
+
+                    <form id="up-bank-connect-form" method="post" action="{{ url_for('up_bank.connect') }}">
+                        <div class="form-group mb-3">
+                            <label for="token">Personal Access Token</label>
+                            <div class="input-group">
+                                <input type="password" id="token" name="token" class="form-control" 
+                                       placeholder="up:yeah:..." required 
+                                       autocomplete="off">
+                                <div class="input-group-append">
+                                    <button type="button" id="toggle-token-visibility" class="btn btn-outline-secondary">
+                                        <i class="fa fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">
+                                Your token starts with "up:yeah:" and can be created in the 
+                                <a href="https://developer.up.com.au/" target="_blank">Up Developer Portal</a>.
+                            </small>
+                            <div id="token-validation-message" class="mt-2"></div>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="agree-terms" required>
+                                <label class="custom-control-label" for="agree-terms">
+                                    I understand that this will grant the application access to my Up Bank account data
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">Connect Account</button>
+                            <a href="{{ url_for('main.index') }}" class="btn btn-link">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">
+                        Your token is encrypted before being stored and is never shared with third parties.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Toggle token visibility
+document.getElementById('toggle-token-visibility').addEventListener('click', function() {
+    const tokenInput = document.getElementById('token');
+    const icon = this.querySelector('i');
+    
+    if (tokenInput.type === 'password') {
+        tokenInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        tokenInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+});
+
+// Basic token format validation
+document.getElementById('token').addEventListener('input', function() {
+    const token = this.value.trim();
+    const validationMessage = document.getElementById('token-validation-message');
+    
+    validationMessage.textContent = '';
+    validationMessage.className = '';
+    
+    if (token && !token.startsWith('up:yeah:')) {
+        validationMessage.textContent = 'Invalid token format. Token should start with "up:yeah:".';
+        validationMessage.className = 'text-danger';
+    }
+});
+</script>
+{% endblock %}

@@ -12,6 +12,7 @@ from app.services.bank_service import (
     get_transactions_by_week
 )
 from app.models import Account, AccountSource
+from app.services.auth_service import check_token_rotation_needed
 
 # Create the blueprint
 up_bank_bp = Blueprint('up_bank', __name__)
@@ -127,6 +128,16 @@ def transactions():
         ]
     
     return jsonify(result)
+
+
+@up_bank_bp.route('/token-rotation-check')
+@login_required
+def token_rotation_check():
+    """Check if the current user's token needs rotation."""
+    # Get token rotation info
+    rotation_info = check_token_rotation_needed(current_user)
+    
+    return jsonify(rotation_info)
 
 
 @up_bank_bp.route('/disconnect', methods=['POST'])

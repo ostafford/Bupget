@@ -14,6 +14,7 @@ from app.utils.crypto import encrypt_token, decrypt_token
 # Up Bank API token (encrypted in database)
 up_bank_token = db.Column(db.String(255), nullable=True)
 up_bank_connected_at = db.Column(db.DateTime, nullable=True)
+up_bank_token_added_at = db.Column(db.DateTime, nullable=True)
 
 class User(db.Model, UserMixin):
     """
@@ -92,8 +93,19 @@ class User(db.Model, UserMixin):
         Args:
             token: The Up Bank personal access token
         """
+        # If token is None, we're clearing the token
+        if token is None:
+            self.up_bank_token = None
+            self.up_bank_token_added_at = None
+            db.session.commit()
+            return
+            
         # Encrypt the token before storage
         self.up_bank_token = encrypt_token(token)
+        
+        # Record when the token was added
+        self.up_bank_token_added_at = datetime.utcnow()
+        
         db.session.commit()
     
     def get_up_bank_token(self):

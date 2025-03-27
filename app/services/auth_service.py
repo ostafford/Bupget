@@ -142,10 +142,16 @@ def get_up_bank_connection_status(user_id):
         validation = api.validate_token()
         
         if validation["valid"]:
+            # Check if token rotation is needed
+            token_rotation_info = check_token_rotation_needed(user)
+            
             return {
                 "connected": True,
                 "message": "Connected to Up Bank",
-                "connected_at": user.up_bank_connected_at.isoformat() if user.up_bank_connected_at else None
+                "connected_at": user.up_bank_connected_at.isoformat() if user.up_bank_connected_at else None,
+                "token_added_at": user.up_bank_token_added_at.isoformat() if user.up_bank_token_added_at else None,
+                "token_rotation_needed": token_rotation_info["needed"],
+                "token_rotation_message": token_rotation_info["message"] if token_rotation_info["needed"] else None
             }
         else:
             return {
@@ -157,4 +163,38 @@ def get_up_bank_connection_status(user_id):
         return {
             "connected": False,
             "message": f"Error: {str(e)}"
+        }
+
+
+def check_token_rotation_needed(user):
+    """
+    Check if a user's token should be rotated.
+    
+    Args:
+        user (User): The user object
+        
+    Returns:
+        dict: Information about token rotation with needed flag and message
+    """
+    if not user or not user.up_bank_token_added_at:
+        return {
+            "needed": False,
+            "message": None
+        }
+    
+    # Calculate token age
+    token_age = datetime.utcnow() - user.up_bank_token_added_at
+    
+    # Token is older than 14 days
+    if token_age.days > 14:
+        return {
+            "needed": True,
+            "message": "Your token is over 14 days old. Please generate a new token for security."
+        }
+    
+    # Token is older than 10 days but less than 14
+    if token_age.days > 10:
+        return {
+            "needed": True,
+            "message": "Your token will expire soon. Please consider generating a new token."
         }
