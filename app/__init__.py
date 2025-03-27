@@ -108,6 +108,14 @@ def register_blueprints(app):
     # API blueprint for the Up Bank integration
     from app.routes.api import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
+    
+    # Up Bank integration blueprint
+    from app.routes.up_bank import up_bank_bp
+    app.register_blueprint(up_bank_bp, url_prefix='/up-bank')
+    
+    # Calendar view blueprint
+    from app.routes.calendar import calendar_bp
+    app.register_blueprint(calendar_bp, url_prefix='/calendar')
 
 def register_error_handlers(app):
     """

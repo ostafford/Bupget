@@ -57,3 +57,4 @@ def register_commands(app):
     app.cli.add_command(init_db_command)
     app.cli.add_command(drop_db_command)
     app.cli.add_command(create_demo_user_command)
+    
