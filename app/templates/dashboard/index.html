@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Dashboard</h1>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    Navigation
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('dashboard.index') }}" class="list-group-item list-group-item-action active">Dashboard</a>
+                    <a href="{{ url_for('calendar.index') }}" class="list-group-item list-group-item-action">Calendar</a>
+                    <a href="{{ url_for('transactions.index') }}" class="list-group-item list-group-item-action">Transactions</a>
+                    <a href="{{ url_for('budget.index') }}" class="list-group-item list-group-item-action">Budget</a>
+                    <a href="{{ url_for('up_bank.index') }}" class="list-group-item list-group-item-action">Up Bank Connection</a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    Quick Actions
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('up_bank.connect') }}" class="btn btn-primary">Connect to Up Bank</a>
+                        <a href="{{ url_for('up_bank.sync') }}" class="btn btn-outline-primary">Sync Transactions</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="card mb-4">
+                <div class="card-header">
+                    Account Overview
+                </div>
+                <div class="card-body">
+                    <p>Welcome to your financial dashboard! Here you can manage your finances, track spending, and plan your budget.</p>
+                    <p>To get started, connect your Up Bank account using the button in the sidebar.</p>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            Recent Transactions
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">No recent transactions to display.</p>
+                            <a href="{{ url_for('transactions.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            Up Bank Connection
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">Not connected to Up Bank.</p>
+                            <a href="{{ url_for('up_bank.connect') }}" class="btn btn-sm btn-outline-primary">Connect Now</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

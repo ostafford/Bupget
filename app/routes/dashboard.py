@@ -16,11 +16,11 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @login_required
 def index():
     """Dashboard home page route."""
-    return "Dashboard home page (to be implemented)"
+    return render_template('dashboard/index.html')
 
 
 @dashboard_bp.route('/overview')
 @login_required
 def overview():
     """Financial overview route."""
-    return "Financial overview page (to be implemented)"
+    return render_template('dashboard/overview.html')
