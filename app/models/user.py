@@ -45,15 +45,16 @@ class User(db.Model, UserMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
     
-    # Relationships to other models
+   # Relationships to other models
     accounts = db.relationship('Account', back_populates='user', cascade='all, delete-orphan')
     transactions = db.relationship('Transaction', back_populates='user', cascade='all, delete-orphan')
     recurring_expenses = db.relationship('RecurringExpense', back_populates='user', cascade='all, delete-orphan')
     categories = db.relationship('TransactionCategory', back_populates='user', cascade='all, delete-orphan')
     weekly_summaries = db.relationship('WeeklySummary', back_populates='user', cascade='all, delete-orphan')
-    target_forecasts = db.relationship('TargetDateForecast', back_populates='user', cascade='all, delete-orphan')
-    monthly_forecasts = db.relationship('MonthlyForecast', back_populates='user', cascade='all, delete-orphan')
     
+    # Temporarily removed forecast relationships to break circular dependencies
+    # We'll add them back later when implementing forecasting features
+     
     def __repr__(self):
         """String representation of the user."""
         return f'<User {self.email}>'

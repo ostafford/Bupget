@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Budget App - Home{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="jumbotron bg-light p-5 rounded">
+        <h1 class="display-4">Welcome to Budget App</h1>
+        <p class="lead">A powerful tool for managing your finances and budgeting with Up Bank integration.</p>
+        <hr class="my-4">
+        <p>Track your spending, visualize your budget, and plan for the future with our calendar-based interface.</p>
+        <div class="mt-4">
+            {% if current_user.is_authenticated %}
+                <a class="btn btn-primary btn-lg" href="{{ url_for('dashboard.index') }}" role="button">Go to Dashboard</a>
+            {% else %}
+                <a class="btn btn-primary btn-lg" href="{{ url_for('auth.login') }}" role="button">Get Started</a>
+                <a class="btn btn-outline-secondary btn-lg ms-2" href="{{ url_for('auth.register') }}" role="button">Create Account</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Up Bank Integration</h5>
+                    <p class="card-text">Connect to your Up Bank account for real-time transaction data and account balances.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Calendar View</h5>
+                    <p class="card-text">Visualize your spending patterns with our intuitive calendar interface.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Future Projections</h5>
+                    <p class="card-text">See your future balances based on recurring expenses and income.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

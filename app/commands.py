@@ -17,6 +17,7 @@ app = None
 @with_appcontext
 def init_db_command():
     """Initialize the database - create all tables."""
+    # Create all tables in the database
     db.create_all()
     click.echo('Initialized the database.')
 
@@ -36,6 +37,8 @@ def drop_db_command():
 @with_appcontext
 def create_demo_user_command():
     """Create a demo user for testing."""
+    from app.models.user import User
+    
     # Check if demo user already exists
     if User.query.filter_by(email='demo@example.com').first():
         click.echo('Demo user already exists.')
@@ -52,7 +55,10 @@ def create_demo_user_command():
     db.session.add(user)
     db.session.commit()
     
-    click.echo('Created demo user with email: demo@example.com and password: password')
+    click.echo('Created demo user with:')
+    click.echo('  Email: demo@example.com')
+    click.echo('  Password: password')
+    click.echo('\nYou can now log in with these credentials to test the application.')
 
 
 @click.command('verify-setup')
@@ -169,6 +175,34 @@ def generate_encryption_key_command():
     click.echo(key.decode('utf-8'))
 
 
+@click.command('create-demo-user')
+@with_appcontext
+def create_demo_user_command():
+    """Create a demo user for testing."""
+    from app.models import User
+    
+    # Check if demo user already exists
+    if User.query.filter_by(email='demo@example.com').first():
+        click.echo('Demo user already exists.')
+        return
+    
+    # Create demo user
+    user = User(
+        email='demo@example.com',
+        first_name='Demo',
+        last_name='User'
+    )
+    user.password = 'password'  # This will be hashed
+    
+    db.session.add(user)
+    db.session.commit()
+    
+    click.echo('Created demo user with:')
+    click.echo('  Email: demo@example.com')
+    click.echo('  Password: password')
+    click.echo('\nYou can now log in with these credentials to test the application.')
+
+
 def register_commands(app_instance):
     """Register CLI commands with the Flask application."""
     global app
@@ -182,3 +216,4 @@ def register_commands(app_instance):
     app.cli.add_command(sync_up_bank_command)
     app.cli.add_command(test_upbank_auth_command)
     app.cli.add_command(generate_encryption_key_command)
+    app.cli.add_command(create_demo_user_command)

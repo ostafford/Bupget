@@ -69,16 +69,8 @@ def connect():
         else:
             flash('Failed to connect to Up Bank', 'error')
     
-    # For now, render a simple form
-    # In a real implementation, you would render a template
-    return """
-    <h1>Connect to Up Bank</h1>
-    <p>Enter your Up Bank Personal Access Token to connect your account.</p>
-    <form method="post">
-        <input type="text" name="token" placeholder="Personal Access Token" required>
-        <button type="submit">Connect</button>
-    </form>
-    """
+    # For GET requests, render the template
+    return render_template('up_bank/connect.html')
 
 
 @up_bank_bp.route('/sync', methods=['POST'])

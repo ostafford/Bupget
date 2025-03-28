@@ -14,10 +14,10 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 def index():
     """Home page route."""
-    return "Welcome to the Budget App! This is the home page."
+    return render_template('main/index.html')
 
 
 @main_bp.route('/about')
 def about():
     """About page route."""
-    return "This is the Budget App, a tool for tracking and forecasting finances."
+    return render_template('main/about.html')
