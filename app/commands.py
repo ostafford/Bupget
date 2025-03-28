@@ -203,6 +203,80 @@ def create_demo_user_command():
     click.echo('\nYou can now log in with these credentials to test the application.')
 
 
+@click.command('delete-user')
+@click.argument('email')
+@with_appcontext
+def delete_user_command(email):
+    """Delete a user by email."""
+    from app.models.user import User
+    
+    # Find the user
+    user = User.query.filter_by(email=email).first()
+    
+    if not user:
+        click.echo(f'User with email {email} not found.')
+        return
+    
+    # Delete the user
+    db.session.delete(user)
+    db.session.commit()
+    
+    click.echo(f'Deleted user with email: {email}')
+
+@click.command('list-users')
+@with_appcontext
+def list_users_command():
+    """List all users in the database."""
+    from app.models.user import User
+    
+    users = User.query.all()
+    
+    if not users:
+        click.echo('No users found in the database.')
+        return
+    
+    click.echo('Users in the database:')
+    for user in users:
+        click.echo(f'  ID: {user.id}, Email: {user.email}, Name: {user.full_name}')
+
+@click.command('reset-db')
+@click.option('--yes', is_flag=True, help='Skip confirmation prompt')
+@with_appcontext
+def reset_db_command(yes):
+    """Reset the database - drop all tables and recreate them."""
+    if not yes:
+        confirmed = click.confirm('Are you sure you want to reset the database? This will delete ALL data!')
+        if not confirmed:
+            click.echo('Operation cancelled.')
+            return
+    
+    # Drop all tables
+    db.drop_all()
+    click.echo('Dropped all tables.')
+    
+    # Recreate all tables
+    db.create_all()
+    click.echo('Recreated all tables.')
+    
+    # Create demo user if desired
+    if click.confirm('Create demo user?'):
+        from app.models.user import User
+        
+        user = User(
+            email='demo@example.com',
+            first_name='Demo',
+            last_name='User'
+        )
+        user.password = 'password'  # This will be hashed
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        click.echo('Created demo user with:')
+        click.echo('  Email: demo@example.com')
+        click.echo('  Password: password')
+
+
 def register_commands(app_instance):
     """Register CLI commands with the Flask application."""
     global app
@@ -217,3 +291,6 @@ def register_commands(app_instance):
     app.cli.add_command(test_upbank_auth_command)
     app.cli.add_command(generate_encryption_key_command)
     app.cli.add_command(create_demo_user_command)
+    app.cli.add_command(delete_user_command)
+    app.cli.add_command(list_users_command)
+    app.cli.add_command(reset_db_command)
