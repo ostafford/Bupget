@@ -46,7 +46,7 @@ def connect_up_bank(user_id, token):
         user.set_up_bank_token(token)
         
         # Sync initial account data
-        api.sync_accounts(user_id)
+        sync_accounts(user_id)
         
         return True
     except Exception as e:

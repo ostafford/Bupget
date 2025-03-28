@@ -172,53 +172,7 @@ def accounts():
     return render_template('up_bank/accounts.html', accounts=accounts)
 
 
-@up_bank_bp.route('/accounts/<int:account_id>')
-@login_required
-def account_detail(account_id):
-    """View details for a specific account."""
-    # Get the account
-    account = Account.query.filter_by(
-        id=account_id,
-        user_id=current_user.id
-    ).first_or_404()
-    
-    # Get balance history for visualization
-    from app.models.account import AccountBalanceHistory
-    
-    # Get last 30 days of history
-    today = datetime.utcnow().date()
-    thirty_days_ago = today - timedelta(days=30)
-    
-    history = AccountBalanceHistory.query.filter(
-        AccountBalanceHistory.account_id == account.id,
-        AccountBalanceHistory.date >= thirty_days_ago
-    ).order_by(AccountBalanceHistory.date).all()
-    
-    # For now, render a simple response
-    # In a real implementation, you would render a template
-    return jsonify({
-        "account": {
-            "id": account.id,
-            "name": account.name,
-            "balance": float(account.balance),
-            "currency": account.currency,
-            "type": account.type.value,
-            "created_at": account.created_at.isoformat() if account.created_at else None,
-            "updated_at": account.updated_at.isoformat() if account.updated_at else None,
-            "last_synced": account.last_synced.isoformat() if account.last_synced else None,
-            "external_id": account.external_id
-        },
-        "balance_history": [
-            {
-                "date": h.date.isoformat(),
-                "balance": float(h.balance)
-            }
-            for h in history
-        ]
-    })
-
-
-@up_bank_bp.route('/account_detail/<int:account_id>')
+@up_bank_bp.route('/accounts_detail/<int:account_id>')
 @login_required
 def account_detail(account_id):
     """View details for a specific account."""
@@ -243,16 +197,6 @@ def account_detail(account_id):
     # Render the account detail template
     return render_template('up_bank/account_detail.html', account=account, balance_history=history)
 
-
-
-@up_bank_bp.route('/token-rotation-check')
-@login_required
-def token_rotation_check():
-    """Check if the current user's token needs rotation."""
-    # Get token rotation info
-    rotation_info = check_token_rotation_needed(current_user)
-    
-    return jsonify(rotation_info)
 
 @up_bank_bp.route('/api/accounts')
 @login_required
