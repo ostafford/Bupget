@@ -129,40 +129,6 @@ class UpBankAPI:
             logger.error(error_message)
             raise Exception(error_message)
 
-
-    # Helper function to get an API instance
-    def get_up_bank_api(token=None):
-        """
-        Get an instance of the Up Bank API connector.
-        
-        Args:
-            token (str, optional): Up Bank API token
-            
-        Returns:
-            UpBankAPI: An initialized API connector
-        """
-        return UpBankAPI(token=token)
-
-
-    # Command line function to test API connection
-    def test_api_connection(token):
-        """
-        Test connection to the Up Bank API.
-        
-        Args:
-            token (str): Up Bank API token
-            
-        Returns:
-            bool: True if connection successful, False otherwise
-        """
-        try:
-            api = UpBankAPI(token=token)
-            return api.ping()
-        except Exception as e:
-            logger.error(f"Error testing API connection: {str(e)}")
-            return False
-
-
     def get_accounts(self, account_type=None):
         """
         Retrieve accounts from Up Bank.
@@ -259,3 +225,36 @@ class UpBankAPI:
                 balances[account_id] = balance
         
         return balances
+
+
+# Helper function to get an API instance
+def get_up_bank_api(token=None):
+    """
+    Get an instance of the Up Bank API connector.
+    
+    Args:
+        token (str, optional): Up Bank API token
+        
+    Returns:
+        UpBankAPI: An initialized API connector
+    """
+    return UpBankAPI(token=token)
+
+
+# Command line function to test API connection
+def test_api_connection(token):
+    """
+    Test connection to the Up Bank API.
+    
+    Args:
+        token (str): Up Bank API token
+        
+    Returns:
+        bool: True if connection successful, False otherwise
+    """
+    try:
+        api = UpBankAPI(token=token)
+        return api.ping()
+    except Exception as e:
+        logger.error(f"Error testing API connection: {str(e)}")
+        return False
