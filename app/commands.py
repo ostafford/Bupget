@@ -277,6 +277,64 @@ def reset_db_command(yes):
         click.echo('  Password: password')
 
 
+@click.command('sync-accounts')
+@click.argument('user_id', type=int)
+@with_appcontext
+def sync_accounts_command(user_id):
+    """
+    Sync accounts from Up Bank for a user.
+    
+    Args:
+        user_id: The user ID
+    """
+    from app.services.bank_service import sync_accounts
+    
+    success, message, count = sync_accounts(user_id)
+    
+    if success:
+        click.echo(f"✅ {message}")
+    else:
+        click.echo(f"❌ {message}")
+
+
+@click.command('list-accounts')
+@click.argument('user_id', type=int)
+@with_appcontext
+def list_accounts_command(user_id):
+    """
+    List accounts for a user.
+    
+    Args:
+        user_id: The user ID
+    """
+    from app.models import User, Account
+    
+    # Find the user
+    user = User.query.get(user_id)
+    
+    if not user:
+        click.echo(f'User with ID {user_id} not found.')
+        return
+    
+    # Get accounts
+    accounts = Account.query.filter_by(user_id=user_id).all()
+    
+    if not accounts:
+        click.echo(f'No accounts found for user {user_id}.')
+        return
+    
+    click.echo(f'Accounts for user {user.full_name} (ID: {user_id}):')
+    for account in accounts:
+        click.echo(f'  ID: {account.id}')
+        click.echo(f'  Name: {account.name}')
+        click.echo(f'  Type: {account.type.value}')
+        click.echo(f'  Balance: {account.balance} {account.currency}')
+        click.echo(f'  Source: {account.source.value}')
+        click.echo(f'  Last Synced: {account.last_synced}')
+        click.echo(f'  External ID: {account.external_id}')
+        click.echo('  ------------------')
+
+
 def register_commands(app_instance):
     """Register CLI commands with the Flask application."""
     global app
@@ -290,7 +348,9 @@ def register_commands(app_instance):
     app.cli.add_command(sync_up_bank_command)
     app.cli.add_command(test_upbank_auth_command)
     app.cli.add_command(generate_encryption_key_command)
-    app.cli.add_command(create_demo_user_command)
     app.cli.add_command(delete_user_command)
     app.cli.add_command(list_users_command)
     app.cli.add_command(reset_db_command)
+    app.cli.add_command(sync_accounts_command)
+    app.cli.add_command(list_accounts_command)
+    

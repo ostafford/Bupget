@@ -161,3 +161,101 @@ def test_api_connection(token):
     except Exception as e:
         logger.error(f"Error testing API connection: {str(e)}")
         return False
+
+
+def get_accounts(self, account_type=None):
+        """
+        Retrieve accounts from Up Bank.
+        
+        Args:
+            account_type (str, optional): Filter by account type (TRANSACTIONAL, SAVER)
+            
+        Returns:
+            list: List of account data dictionaries
+        """
+        try:
+            # Build the URL with optional filter
+            url = f"{self.base_url}/accounts"
+            params = {}
+            
+            if account_type:
+                params["filter[type]"] = account_type
+            
+            # Make the request
+            response = requests.get(url, params=params, headers=self.headers)
+            
+            if response.status_code != 200:
+                logger.error(f"Error retrieving accounts: {response.status_code}, {response.text}")
+                return []
+            
+            # Parse and return the data
+            data = response.json()
+            return data.get('data', [])
+        except Exception as e:
+            logger.error(f"Error retrieving accounts: {str(e)}")
+            return []
+    
+def get_account_by_id(self, account_id):
+    """
+    Retrieve a specific account by ID.
+    
+    Args:
+        account_id (str): The Up Bank account ID
+        
+    Returns:
+        dict: Account data dictionary or None if not found
+    """
+    try:
+        # Make the request
+        response = requests.get(f"{self.base_url}/accounts/{account_id}", headers=self.headers)
+        
+        if response.status_code != 200:
+            logger.error(f"Error retrieving account {account_id}: {response.status_code}, {response.text}")
+            return None
+        
+        # Parse and return the data
+        data = response.json()
+        return data.get('data')
+    except Exception as e:
+        logger.error(f"Error retrieving account {account_id}: {str(e)}")
+        return None
+        
+def get_account_balance(self, account_id):
+    """
+    Get the balance for a specific account.
+    
+    Args:
+        account_id (str): The Up Bank account ID
+        
+    Returns:
+        dict: Balance information with 'value' and 'currencyCode' or None if error
+    """
+    account = self.get_account_by_id(account_id)
+    
+    if not account or 'attributes' not in account:
+        return None
+    
+    return account.get('attributes', {}).get('balance')
+        
+def get_all_account_balances(self):
+    """
+    Get balances for all accounts.
+    
+    Returns:
+        dict: Dictionary mapping account IDs to balance information
+    """
+    accounts = self.get_accounts()
+    balances = {}
+    
+    for account in accounts:
+        account_id = account.get('id')
+        if not account_id:
+            continue
+            
+        attributes = account.get('attributes', {})
+        balance = attributes.get('balance')
+        
+        if balance:
+            balances[account_id] = balance
+    
+    return balances

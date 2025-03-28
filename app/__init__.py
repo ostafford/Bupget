@@ -14,6 +14,21 @@ from app.config import config_by_name
 # Import extensions to be registered with the app
 from app.extensions import db, migrate, login_manager
 
+# Register CLI commands
+from app.commands import register_commands
+register_commands(app)
+
+# Register template filters
+from app.utils.filters import register_template_filters
+register_template_filters(app)
+
+# Initialize encryption key
+with app.app_context():
+    from app.utils.crypto import init_encryption_key
+    init_encryption_key()
+    
+    # Return the configured app
+
 def create_app(config_name='development'):
     """
     Create and configure a Flask application instance.

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Up Bank Accounts{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Up Bank Accounts</h1>
+            <p class="text-muted">View and manage your Up Bank accounts</p>
+        </div>
+        <div class="col-auto">
+            <form action="{{ url_for('up_bank.sync') }}" method="post" class="d-inline">
+                <input type="hidden" name="days_back" value="30">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sync-alt me-1"></i> Sync Accounts
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if accounts %}
+        <div class="row">
+            {% for account in accounts %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">{{ account.name }}</h5>
+                        <span class="badge {% if account.type == 'CHECKING' %}bg-primary{% else %}bg-success{% endif %}">
+                            {{ account.type|title }}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="text-center mb-4">
+                            {% if account.balance >= 0 %}
+                                <span class="text-success">{{ account.balance|format_currency(account.currency) }}</span>
+                            {% else %}
+                                <span class="text-danger">{{ account.balance|format_currency(account.currency) }}</span>
+                            {% endif %}
+                        </h3>
+                        
+                        <div class="d-flex justify-content-between small text-muted mb-2">
+                            <span>External ID:</span>
+                            <span>{{ account.external_id|truncate(12) }}</span>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>Last Synced:</span>
+                            <span>{{ account.last_synced|format_datetime }}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{{ url_for('up_bank.account_detail', account_id=account.id) }}" class="btn btn-sm btn-outline-primary">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <h4 class="alert-heading">No accounts found</h4>
+            <p>You don't have any Up Bank accounts synced yet. Click the "Sync Accounts" button to retrieve your accounts.</p>
+            <p>If you haven't connected to Up Bank yet, you'll need to <a href="{{ url_for('up_bank.connect') }}">connect your account</a> first.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

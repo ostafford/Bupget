@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ account.name }} - Account Details{% endblock %}
+
+{% block extra_css %}
+<style>
+.balance-chart {
+    height: 250px;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    padding: 1rem;
+}
+.transaction-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.account-card {
+    border-left: 5px solid 
+        {% if account.type == 'CHECKING' %}#0d6efd{% else %}#198754{% endif %};
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="mb-4">
+        <a href="{{ url_for('up_bank.accounts') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Back to Accounts
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card account-card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">{{ account.name }}</h5>
+                    <span class="badge {% if account.type == 'CHECKING' %}bg-primary{% else %}bg-success{% endif %}">
+                        {{ account.type|title }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <h2 class="text-center mb-4">
+                        {% if account.balance >= 0 %}
+                            <span class="text-success">{{ account.balance|format_currency(account.currency) }}</span>
+                        {% else %}
+                            <span class="text-danger">{{ account.balance|format_currency(account.currency) }}</span>
+                        {% endif %}
+                    </h2>
+                    
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <th>Account Type</th>
+                                <td>{{ account.type|title }}</td>
+                            </tr>
+                            <tr>
+                                <th>Currency</th>
+                                <td>{{ account.currency }}</td>
+                            </tr>
+                            <tr>
+                                <th>External ID</th>
+                                <td>{{ account.external_id }}</td>
+                            </tr>
+                            <tr>
+                                <th>Last Synced</th>
+                                <td>{{ account.last_synced|format_datetime }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer">
+                    <form action="{{ url_for('up_bank.sync') }}" method="post">
+                        <input type="hidden" name="days_back" value="30">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-sync-alt me-1"></i> Sync Now
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">Balance History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="balance-chart" id="balance-chart">
+                        <!-- Chart will be rendered here -->
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading balance history...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    Showing the last 30 days of balance history
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Recent Transactions</h5>
+                </div>
+                <div class="card-body transaction-list">
+                    <!-- Transactions will be loaded here -->
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading transactions...</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('transactions.index') }}" class="btn btn-sm btn-outline-primary">
+                        View All Transactions
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// This is placeholder code - you'll replace this with actual data fetching
+document.addEventListener('DOMContentLoaded', function() {
+    // Simulate loading account balance history
+    setTimeout(function() {
+        // Sample data - replace with real data from the API
+        const labels = [
+            // Replace with actual dates from the balance history
+            {% for entry in balance_history %}
+                "{{ entry.date }}",
+            {% endfor %}
+        ];
+        
+        const data = {
+            labels: labels,
+            datasets: [{
+                label: 'Account Balance',
+                data: [
+                    // Replace with actual balances from the balance history
+                    {% for entry in balance_history %}
+                        {{ entry.balance }},
+                    {% endfor %}
+                ],
+                fill: true,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.1
+            }]
+        };
+        
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        };
+        
+        // Replace loading indicator with chart
+        document.getElementById('balance-chart').innerHTML = '';
+        const ctx = document.createElement('canvas');
+        document.getElementById('balance-chart').appendChild(ctx);
+        new Chart(ctx, config);
+        
+        // Load transactions
+        fetch('{{ url_for("transactions.api_account_transactions", account_id=account.id) }}')
+            .then(response => response.json())
+            .then(data => {
+                const transactionList = document.querySelector('.transaction-list');
+                transactionList.innerHTML = '';
+                
+                if (data.transactions.length === 0) {
+                    transactionList.innerHTML = '<div class="alert alert-info">No transactions found for this account.</div>';
+                    return;
+                }
+                
+                const table = document.createElement('table');
+                table.className = 'table table-hover';
+                
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                `;
+                
+                const tbody = document.createElement('tbody');
+                
+                data.transactions.forEach(tx => {
+                    const row = document.createElement('tr');
+                    
+                    const dateCell = document.createElement('td');
+                    const date = new Date(tx.date);
+                    dateCell.textContent = date.toLocaleDateString();
+                    
+                    const descCell = document.createElement('td');
+                    descCell.textContent = tx.description;
+                    
+                    const amountCell = document.createElement('td');
+                    amountCell.className = 'text-end';
+                    amountCell.textContent = new Intl.NumberFormat('en-AU', {
+                        style: 'currency',
+                        currency: '{{ account.currency }}'
+                    }).format(tx.amount);
+                    
+                    if (tx.amount < 0) {
+                        amountCell.className += ' text-danger';
+                    } else {
+                        amountCell.className += ' text-success';
+                    }
+                    
+                    row.appendChild(dateCell);
+                    row.appendChild(descCell);
+                    row.appendChild(amountCell);
+                    
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                transactionList.appendChild(table);
+            })
+            .catch(error => {
+                console.error('Error loading transactions:', error);
+                const transactionList = document.querySelector('.transaction-list');
+                transactionList.innerHTML = '<div class="alert alert-danger">Error loading transactions. Please try again later.</div>';
+            });
+    }, 500);
+});
+</script>
+{% endblock %}
