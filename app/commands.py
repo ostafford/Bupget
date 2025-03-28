@@ -335,6 +335,79 @@ def list_accounts_command(user_id):
         click.echo('  ------------------')
 
 
+@click.command('test-get-accounts')
+@click.argument('user_id', type=int)
+@with_appcontext
+def test_get_accounts_command(user_id):
+    """
+    Test retrieving accounts from Up Bank for a user.
+    
+    Args:
+        user_id: The user ID
+    """
+    from app.models import User
+    from app.api.up_bank import get_up_bank_api
+    
+    # Get the user
+    user = User.query.get(user_id)
+    if not user:
+        click.echo(f"User with ID {user_id} not found.")
+        return
+    
+    # Get the token
+    token = user.get_up_bank_token()
+    if not token:
+        click.echo("Up Bank token not found for user.")
+        return
+    
+    # Initialize the API
+    api = get_up_bank_api(token=token)
+    
+    # Get accounts
+    click.echo("Retrieving accounts from Up Bank...")
+    accounts = api.get_accounts()
+    
+    if not accounts:
+        click.echo("No accounts found.")
+        return
+    
+    # Display accounts
+    click.echo(f"Found {len(accounts)} accounts:")
+    for i, account in enumerate(accounts):
+        account_id = account.get('id', 'Unknown')
+        attributes = account.get('attributes', {})
+        name = attributes.get('displayName', 'Unknown')
+        account_type = attributes.get('accountType', 'Unknown')
+        
+        balance_data = attributes.get('balance', {})
+        balance_value = balance_data.get('value', '0')
+        currency = balance_data.get('currencyCode', 'AUD')
+        
+        click.echo(f"\nAccount {i+1}:")
+        click.echo(f"  ID: {account_id}")
+        click.echo(f"  Name: {name}")
+        click.echo(f"  Type: {account_type}")
+        click.echo(f"  Balance: {balance_value} {currency}")
+    
+    # Also test getting a specific account
+    if accounts:
+        first_account_id = accounts[0].get('id')
+        click.echo(f"\nRetrieving details for account {first_account_id}...")
+        account_details = api.get_account_by_id(first_account_id)
+        
+        if account_details:
+            attributes = account_details.get('attributes', {})
+            name = attributes.get('displayName', 'Unknown')
+            click.echo(f"  Name: {name}")
+            
+            # Get balance
+            balance = api.get_account_balance(first_account_id)
+            if balance:
+                click.echo(f"  Balance: {balance.get('value')} {balance.get('currencyCode')}")
+        else:
+            click.echo("Failed to retrieve account details.")
+
+
 def register_commands(app_instance):
     """Register CLI commands with the Flask application."""
     global app
@@ -353,4 +426,3 @@ def register_commands(app_instance):
     app.cli.add_command(reset_db_command)
     app.cli.add_command(sync_accounts_command)
     app.cli.add_command(list_accounts_command)
-    
