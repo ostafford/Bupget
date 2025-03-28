@@ -130,40 +130,40 @@ class UpBankAPI:
             raise Exception(error_message)
 
 
-# Helper function to get an API instance
-def get_up_bank_api(token=None):
-    """
-    Get an instance of the Up Bank API connector.
-    
-    Args:
-        token (str, optional): Up Bank API token
+    # Helper function to get an API instance
+    def get_up_bank_api(token=None):
+        """
+        Get an instance of the Up Bank API connector.
         
-    Returns:
-        UpBankAPI: An initialized API connector
-    """
-    return UpBankAPI(token=token)
+        Args:
+            token (str, optional): Up Bank API token
+            
+        Returns:
+            UpBankAPI: An initialized API connector
+        """
+        return UpBankAPI(token=token)
 
 
-# Command line function to test API connection
-def test_api_connection(token):
-    """
-    Test connection to the Up Bank API.
-    
-    Args:
-        token (str): Up Bank API token
+    # Command line function to test API connection
+    def test_api_connection(token):
+        """
+        Test connection to the Up Bank API.
         
-    Returns:
-        bool: True if connection successful, False otherwise
-    """
-    try:
-        api = UpBankAPI(token=token)
-        return api.ping()
-    except Exception as e:
-        logger.error(f"Error testing API connection: {str(e)}")
-        return False
+        Args:
+            token (str): Up Bank API token
+            
+        Returns:
+            bool: True if connection successful, False otherwise
+        """
+        try:
+            api = UpBankAPI(token=token)
+            return api.ping()
+        except Exception as e:
+            logger.error(f"Error testing API connection: {str(e)}")
+            return False
 
 
-def get_accounts(self, account_type=None):
+    def get_accounts(self, account_type=None):
         """
         Retrieve accounts from Up Bank.
         
@@ -194,68 +194,68 @@ def get_accounts(self, account_type=None):
         except Exception as e:
             logger.error(f"Error retrieving accounts: {str(e)}")
             return []
-    
-def get_account_by_id(self, account_id):
-    """
-    Retrieve a specific account by ID.
-    
-    Args:
-        account_id (str): The Up Bank account ID
         
-    Returns:
-        dict: Account data dictionary or None if not found
-    """
-    try:
-        # Make the request
-        response = requests.get(f"{self.base_url}/accounts/{account_id}", headers=self.headers)
+    def get_account_by_id(self, account_id):
+        """
+        Retrieve a specific account by ID.
         
-        if response.status_code != 200:
-            logger.error(f"Error retrieving account {account_id}: {response.status_code}, {response.text}")
+        Args:
+            account_id (str): The Up Bank account ID
+            
+        Returns:
+            dict: Account data dictionary or None if not found
+        """
+        try:
+            # Make the request
+            response = requests.get(f"{self.base_url}/accounts/{account_id}", headers=self.headers)
+            
+            if response.status_code != 200:
+                logger.error(f"Error retrieving account {account_id}: {response.status_code}, {response.text}")
+                return None
+            
+            # Parse and return the data
+            data = response.json()
+            return data.get('data')
+        except Exception as e:
+            logger.error(f"Error retrieving account {account_id}: {str(e)}")
+            return None
+            
+    def get_account_balance(self, account_id):
+        """
+        Get the balance for a specific account.
+        
+        Args:
+            account_id (str): The Up Bank account ID
+            
+        Returns:
+            dict: Balance information with 'value' and 'currencyCode' or None if error
+        """
+        account = self.get_account_by_id(account_id)
+        
+        if not account or 'attributes' not in account:
             return None
         
-        # Parse and return the data
-        data = response.json()
-        return data.get('data')
-    except Exception as e:
-        logger.error(f"Error retrieving account {account_id}: {str(e)}")
-        return None
-        
-def get_account_balance(self, account_id):
-    """
-    Get the balance for a specific account.
-    
-    Args:
-        account_id (str): The Up Bank account ID
-        
-    Returns:
-        dict: Balance information with 'value' and 'currencyCode' or None if error
-    """
-    account = self.get_account_by_id(account_id)
-    
-    if not account or 'attributes' not in account:
-        return None
-    
-    return account.get('attributes', {}).get('balance')
-        
-def get_all_account_balances(self):
-    """
-    Get balances for all accounts.
-    
-    Returns:
-        dict: Dictionary mapping account IDs to balance information
-    """
-    accounts = self.get_accounts()
-    balances = {}
-    
-    for account in accounts:
-        account_id = account.get('id')
-        if not account_id:
-            continue
+        return account.get('attributes', {}).get('balance')
             
-        attributes = account.get('attributes', {})
-        balance = attributes.get('balance')
+    def get_all_account_balances(self):
+        """
+        Get balances for all accounts.
         
-        if balance:
-            balances[account_id] = balance
-    
-    return balances
+        Returns:
+            dict: Dictionary mapping account IDs to balance information
+        """
+        accounts = self.get_accounts()
+        balances = {}
+        
+        for account in accounts:
+            account_id = account.get('id')
+            if not account_id:
+                continue
+                
+            attributes = account.get('attributes', {})
+            balance = attributes.get('balance')
+            
+            if balance:
+                balances[account_id] = balance
+        
+        return balances
