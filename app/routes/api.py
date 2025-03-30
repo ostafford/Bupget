@@ -79,19 +79,53 @@ def sync_up_bank_route():
 @api_bp.route('/up-bank/webhook', methods=['POST'])
 def up_bank_webhook_route():
     """Webhook endpoint for Up Bank real-time updates."""
+    from app.api.webhooks import verify_webhook_signature, process_webhook
+    
     # Get the webhook data
     data = request.get_json()
     
-    # Verify webhook signature (if implemented by Up Bank)
-    # TODO: Implement webhook signature verification
+    # Get the webhook signature from header
+    signature = request.headers.get('X-Up-Authenticity-Signature')
+    
+    # Get the webhook secret from config
+    webhook_secret = current_app.config.get('UP_BANK_WEBHOOK_SECRET')
+    
+    # For security, get the raw request data for signature verification
+    request_data = request.get_data()
+    
+    # Log webhook receipt
+    current_app.logger.info("Received Up Bank webhook")
+    
+    # Verify webhook signature if configured
+    if webhook_secret:
+        if not signature:
+            current_app.logger.warning("Webhook signature missing")
+            return jsonify({
+                "success": False,
+                "message": "Webhook signature missing"
+            }), 401
+            
+        if not verify_webhook_signature(request_data, signature, webhook_secret):
+            current_app.logger.warning("Invalid webhook signature")
+            return jsonify({
+                "success": False,
+                "message": "Invalid webhook signature"
+            }), 401
+    else:
+        current_app.logger.warning("Webhook secret not configured, skipping signature verification")
     
     # Process the webhook
-    # TODO: Implement webhook processing based on event type
+    result = process_webhook(data)
     
-    # For now, just log the webhook
-    current_app.logger.info(f"Received Up Bank webhook: {data}")
-    
-    return jsonify({
-        "success": True,
-        "message": "Webhook received"
-    })
+    if result["success"]:
+        current_app.logger.info(f"Webhook processed successfully: {result['message']}")
+        return jsonify({
+            "success": True,
+            "message": result["message"]
+        })
+    else:
+        current_app.logger.error(f"Webhook processing failed: {result['message']}")
+        return jsonify({
+            "success": False,
+            "message": result["message"]
+        }), 500

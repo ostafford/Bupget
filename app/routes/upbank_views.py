@@ -16,10 +16,17 @@ from app.models import Account, AccountSource, AccountBalanceHistory
 from app.services.bank_service import connect_up_bank, sync_accounts, sync_transactions
 
 # Create the blueprint for HTML views
-upbank_view_bp = Blueprint('upbank_view', __name__, url_prefix='/up-bank')
+upbank_view_bp = Blueprint('up_bank', __name__, url_prefix='/up-bank')
 
 
 @upbank_view_bp.route('/')
+@login_required
+def index():
+    """Up Bank dashboard page (alias for view_upbank_dashboard)."""
+    return view_upbank_dashboard()
+
+
+@upbank_view_bp.route('/dashboard')
 @login_required
 def view_upbank_dashboard():
     """
