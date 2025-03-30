@@ -1,0 +1,564 @@
+{% extends 'base.html' %}
+
+{% block title %}Transactions{% endblock %}
+
+{% block extra_css %}
+<style>
+  .transaction-row:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+    cursor: pointer;
+  }
+  
+  .transaction-expense {
+    color: #dc3545;
+  }
+  
+  .transaction-income {
+    color: #28a745;
+  }
+  
+  .category-badge {
+    display: inline-block;
+    padding: 0.25em 0.5em;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    color: #fff;
+    background-color: #6c757d;
+  }
+  
+  .extra-badge {
+    background-color: #fd7e14;
+  }
+  
+  .filter-form {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  .pagination-container {
+    margin-top: 1rem;
+  }
+  
+  .date-range-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Transactions</h1>
+    <div>
+      <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+        <i class="fas fa-plus me-1"></i> Add Transaction
+      </button>
+      <a href="{{ url_for('transactions.export_csv') }}" class="btn btn-outline-secondary ms-2">
+        <i class="fas fa-download me-1"></i> Export CSV
+      </a>
+    </div>
+  </div>
+  
+  <!-- Filters -->
+  <div class="card filter-form">
+    <div class="card-body">
+      <form id="transaction-filter-form" method="get">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label for="date-range" class="form-label">Date Range</label>
+            <select class="form-select" id="date-range" name="date_range">
+              <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+              <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+              <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+              <option value="custom" {% if date_range == 'custom' %}selected{% endif %}>Custom range</option>
+            </select>
+          </div>
+          
+          <div class="col-md-4" id="custom-date-container" style="{% if date_range != 'custom' %}display: none;{% endif %}">
+            <label class="form-label">Custom Range</label>
+            <div class="date-range-picker">
+              <input type="date" class="form-control" id="start-date" name="start_date" value="{{ start_date }}">
+              <span>to</span>
+              <input type="date" class="form-control" id="end-date" name="end_date" value="{{ end_date }}">
+            </div>
+          </div>
+          
+          <div class="col-md-4">
+            <label for="category" class="form-label">Category</label>
+            <select class="form-select" id="category" name="category_id">
+              <option value="">All Categories</option>
+              {% for category in categories %}
+                <option value="{{ category.id }}" {% if category_id == category.id %}selected{% endif %}>
+                  {{ category.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div class="col-md-4">
+            <label for="account" class="form-label">Account</label>
+            <select class="form-select" id="account" name="account_id">
+              <option value="">All Accounts</option>
+              {% for account in accounts %}
+                <option value="{{ account.id }}" {% if account_id == account.id %}selected{% endif %}>
+                  {{ account.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div class="col-md-4">
+            <label for="search" class="form-label">Search</label>
+            <input type="text" class="form-control" id="search" name="search" placeholder="Search descriptions..." value="{{ search }}">
+          </div>
+          
+          <div class="col-md-4">
+            <label for="transaction-type" class="form-label">Type</label>
+            <select class="form-select" id="transaction-type" name="type">
+              <option value="">All Types</option>
+              <option value="expense" {% if type == 'expense' %}selected{% endif %}>Expenses Only</option>
+              <option value="income" {% if type == 'income' %}selected{% endif %}>Income Only</option>
+              <option value="extra" {% if type == 'extra' %}selected{% endif %}>Extras Only</option>
+            </select>
+          </div>
+          
+          <div class="col-12 d-flex justify-content-end">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-filter me-1"></i> Apply Filters
+            </button>
+            <a href="{{ url_for('transactions.index') }}" class="btn btn-outline-secondary ms-2">
+              <i class="fas fa-times me-1"></i> Clear Filters
+            </a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Statistics -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card bg-light">
+        <div class="card-body text-center">
+          <h6 class="card-title text-muted">Transactions</h6>
+          <h3 class="mb-0">{{ stats.total_transactions }}</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-light">
+        <div class="card-body text-center">
+          <h6 class="card-title text-muted">Income</h6>
+          <h3 class="mb-0 text-success">${{ stats.income|abs|round(2) }}</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-light">
+        <div class="card-body text-center">
+          <h6 class="card-title text-muted">Expenses</h6>
+          <h3 class="mb-0 text-danger">${{ stats.expenses|abs|round(2) }}</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-light">
+        <div class="card-body text-center">
+          <h6 class="card-title text-muted">Net</h6>
+          <h3 class="mb-0 {% if stats.net >= 0 %}text-success{% else %}text-danger{% endif %}">
+            ${{ stats.net|round(2) }}
+          </h3>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Transactions Table -->
+  <div class="card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Account</th>
+              <th class="text-end">Amount</th>
+              <th class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if transactions %}
+              {% for transaction in transactions %}
+                <tr class="transaction-row" data-id="{{ transaction.id }}">
+                  <td>{{ transaction.date.strftime('%d-%m-%Y') }}</td>
+                  <td>
+                    {{ transaction.description }}
+                    {% if transaction.is_extra %}
+                      <span class="ms-2 badge bg-warning">Extra</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if transaction.category %}
+                      <span class="category-badge" 
+                            style="background-color: {{ transaction.category.color or '#6c757d' }}">
+                        {{ transaction.category.name }}
+                      </span>
+                    {% else %}
+                      <span class="text-muted">Uncategorized</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if transaction.account %}
+                      {{ transaction.account.name }}
+                    {% else %}
+                      <span class="text-muted">Unknown</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end {% if transaction.amount < 0 %}transaction-expense{% else %}transaction-income{% endif %}">
+                    ${{ transaction.amount|abs|round(2) }}
+                  </td>
+                  <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary edit-transaction" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#editTransactionModal"
+                            data-id="{{ transaction.id }}">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-transaction" 
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteTransactionModal"
+                            data-id="{{ transaction.id }}">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="6" class="text-center py-4">
+                  <p class="mb-0 text-muted">No transactions found matching your criteria.</p>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+      <div class="card-footer">
+        <nav aria-label="Transaction pagination">
+          <ul class="pagination justify-content-center mb-0">
+            {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('transactions.index', page=pagination.page-1, **filter_args) }}">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+              </li>
+            {% endif %}
+            
+            {% set start_page = pagination.page - 2 if pagination.page > 2 else 1 %}
+            {% set end_page = pagination.page + 2 if pagination.page + 2 < pagination.pages else pagination.pages %}
+            {% for page_num in range(start_page, end_page + 1) %}
+              <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('transactions.index', page=page_num, **filter_args) }}">
+                  {{ page_num }}
+                </a>
+              </li>
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('transactions.index', page=pagination.page+1, **filter_args) }}">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div class="modal fade" id="addTransactionModal" tabindex="-1" aria-labelledby="addTransactionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addTransactionModalLabel">Add Transaction</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('transactions.add') }}" method="post">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="add-date" class="form-label">Date</label>
+            <input type="date" class="form-control" id="add-date" name="date" value="{{ today }}" required>
+          </div>
+          <div class="mb-3">
+            <label for="add-description" class="form-label">Description</label>
+            <input type="text" class="form-control" id="add-description" name="description" required>
+          </div>
+          <div class="mb-3">
+            <label for="add-amount" class="form-label">Amount</label>
+            <div class="input-group">
+              <div class="input-group-text">$</div>
+              <input type="number" step="0.01" class="form-control" id="add-amount" name="amount" placeholder="0.00" required>
+            </div>
+            <div class="form-text">Use positive value for income, negative for expense</div>
+          </div>
+          <div class="mb-3">
+            <label for="add-category" class="form-label">Category</label>
+            <select class="form-select" id="add-category" name="category_id">
+              <option value="">Uncategorized</option>
+              {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="add-account" class="form-label">Account</label>
+            <select class="form-select" id="add-account" name="account_id" required>
+              {% for account in accounts %}
+                <option value="{{ account.id }}">{{ account.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="add-is-extra" name="is_extra">
+            <label class="form-check-label" for="add-is-extra">Mark as "Extra" expense</label>
+          </div>
+          <div class="mb-3">
+            <label for="add-notes" class="form-label">Notes</label>
+            <textarea class="form-control" id="add-notes" name="notes" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Transaction Modal -->
+<div class="modal fade" id="editTransactionModal" tabindex="-1" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editTransactionModalLabel">Edit Transaction</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="edit-transaction-form" action="{{ url_for('transactions.edit', transaction_id=0) }}" method="post">
+        <div class="modal-body">
+          <!-- Form fields will be populated by JavaScript -->
+          <div class="text-center py-5" id="edit-transaction-loading">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading transaction data...</p>
+          </div>
+          <div id="edit-transaction-content" style="display: none;">
+            <div class="mb-3">
+              <label for="edit-date" class="form-label">Date</label>
+              <input type="date" class="form-control" id="edit-date" name="date" required>
+            </div>
+            <div class="mb-3">
+              <label for="edit-description" class="form-label">Description</label>
+              <input type="text" class="form-control" id="edit-description" name="description" required>
+            </div>
+            <div class="mb-3">
+              <label for="edit-amount" class="form-label">Amount</label>
+              <div class="input-group">
+                <div class="input-group-text">$</div>
+                <input type="number" step="0.01" class="form-control" id="edit-amount" name="amount" placeholder="0.00" required>
+              </div>
+              <div class="form-text">Use positive value for income, negative for expense</div>
+            </div>
+            <div class="mb-3">
+              <label for="edit-category" class="form-label">Category</label>
+              <select class="form-select" id="edit-category" name="category_id">
+                <option value="">Uncategorized</option>
+                {% for category in categories %}
+                  <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="edit-account" class="form-label">Account</label>
+              <select class="form-select" id="edit-account" name="account_id" required>
+                {% for account in accounts %}
+                  <option value="{{ account.id }}">{{ account.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="edit-is-extra" name="is_extra">
+              <label class="form-check-label" for="edit-is-extra">Mark as "Extra" expense</label>
+            </div>
+            <div class="mb-3">
+              <label for="edit-notes" class="form-label">Notes</label>
+              <textarea class="form-control" id="edit-notes" name="notes" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+              <small class="text-muted">
+                <strong>Source:</strong> <span id="edit-source"></span><br>
+                <strong>Created:</strong> <span id="edit-created-at"></span><br>
+                <strong>Updated:</strong> <span id="edit-updated-at"></span>
+              </small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Transaction Modal -->
+<div class="modal fade" id="deleteTransactionModal" tabindex="-1" aria-labelledby="deleteTransactionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteTransactionModalLabel">Delete Transaction</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete this transaction?</p>
+        <p class="mb-0"><strong>Description:</strong> <span id="delete-description"></span></p>
+        <p class="mb-0"><strong>Amount:</strong> $<span id="delete-amount"></span></p>
+        <p><strong>Date:</strong> <span id="delete-date"></span></p>
+        <div class="alert alert-warning">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          This action cannot be undone.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form id="delete-transaction-form" action="{{ url_for('transactions.delete', transaction_id=0) }}" method="post">
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Date range toggle
+    const dateRangeSelect = document.getElementById('date-range');
+    const customDateContainer = document.getElementById('custom-date-container');
+    
+    dateRangeSelect.addEventListener('change', function() {
+      customDateContainer.style.display = (this.value === 'custom') ? 'block' : 'none';
+    });
+    
+    // Edit transaction modal
+    const editButtons = document.querySelectorAll('.edit-transaction');
+    editButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const transactionId = this.getAttribute('data-id');
+        loadTransactionDetails(transactionId);
+      });
+    });
+    
+    // Delete transaction modal
+    const deleteButtons = document.querySelectorAll('.delete-transaction');
+    deleteButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const transactionId = this.getAttribute('data-id');
+        const form = document.getElementById('delete-transaction-form');
+        form.action = form.action.replace('/0', `/${transactionId}`);
+        
+        // Load transaction details for confirmation
+        fetch(`/transactions/api/${transactionId}`)
+          .then(response => response.json())
+          .then(data => {
+            document.getElementById('delete-description').textContent = data.description;
+            document.getElementById('delete-amount').textContent = Math.abs(data.amount).toFixed(2);
+            document.getElementById('delete-date').textContent = formatDate(data.date);
+          });
+      });
+    });
+    
+    // Function to load transaction details for editing
+    function loadTransactionDetails(transactionId) {
+      const form = document.getElementById('edit-transaction-form');
+      form.action = form.action.replace('/0', `/${transactionId}`);
+      
+      // Show loading, hide content
+      document.getElementById('edit-transaction-loading').style.display = 'block';
+      document.getElementById('edit-transaction-content').style.display = 'none';
+      
+      // Fetch transaction details
+      fetch(`/transactions/api/${transactionId}`)
+        .then(response => response.json())
+        .then(data => {
+          // Populate form fields
+          document.getElementById('edit-date').value = data.date;
+          document.getElementById('edit-description').value = data.description;
+          document.getElementById('edit-amount').value = data.amount;
+          document.getElementById('edit-category').value = data.category_id || '';
+          document.getElementById('edit-account').value = data.account_id;
+          document.getElementById('edit-is-extra').checked = data.is_extra;
+          document.getElementById('edit-notes').value = data.notes || '';
+          
+          // Display metadata
+          document.getElementById('edit-source').textContent = data.source;
+          document.getElementById('edit-created-at').textContent = formatDateTime(data.created_at);
+          document.getElementById('edit-updated-at').textContent = formatDateTime(data.updated_at);
+          
+          // Hide loading, show content
+          document.getElementById('edit-transaction-loading').style.display = 'none';
+          document.getElementById('edit-transaction-content').style.display = 'block';
+        })
+        .catch(error => {
+          console.error('Error loading transaction details:', error);
+          alert('Error loading transaction details. Please try again.');
+        });
+    }
+    
+    // Helper function to format dates
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    
+    // Helper function to format date and time
+    function formatDateTime(dateTimeString) {
+      const date = new Date(dateTimeString);
+      return date.toLocaleString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+  });
+</script>
+{% endblock %}

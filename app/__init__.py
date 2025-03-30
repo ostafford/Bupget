@@ -34,10 +34,6 @@ def create_app(config_name='development'):
     
     # Load configuration based on the specified environment
     app.config.from_object(config_by_name[config_name])
-
-    # For debugging: print the database URI
-    # print(f"Initializing app with config: {config_name}")
-    # print(f"DATABASE_URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
     
     # Initialize extensions with the app
     register_extensions(app)
@@ -151,3 +147,4 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_server_error(e):
         return 'Internal server error', 500
+

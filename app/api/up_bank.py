@@ -226,7 +226,6 @@ class UpBankAPI:
         
         return balances
     
-
     def sync_transactions(self, user_id, days_back=30):
         """
         Sync transactions from Up Bank for a user.
@@ -372,6 +371,31 @@ class UpBankAPI:
             db.session.rollback()
             return 0, 0
 
+    def get_transaction_by_id(self, transaction_id):
+        """
+        Retrieve a specific transaction by ID.
+        
+        Args:
+            transaction_id (str): The Up Bank transaction ID
+            
+        Returns:
+            dict: Transaction data dictionary or None if not found
+        """
+        try:
+            # Make the request
+            response = requests.get(f"{self.base_url}/transactions/{transaction_id}", headers=self.headers)
+            
+            if response.status_code != 200:
+                logger.error(f"Error retrieving transaction {transaction_id}: {response.status_code}, {response.text}")
+                return None
+            
+            # Parse and return the data
+            data = response.json()
+            return data.get('data')
+        except Exception as e:
+            logger.error(f"Error retrieving transaction {transaction_id}: {str(e)}")
+            return None
+        
 
 # Helper function to get an API instance
 def get_up_bank_api(token=None):
