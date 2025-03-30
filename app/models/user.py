@@ -36,7 +36,7 @@ class User(db.Model, UserMixin):
     last_name = db.Column(db.String(100), nullable=True)
     
     # Up Bank API token (encrypted in database)
-    up_bank_token = db.Column(db.String(255), nullable=True)
+    up_bank_token = db.Column(db.String(1024), nullable=True)
     
     # User preferences (stored as JSON for flexibility)
     preferences = db.Column(db.JSON, nullable=True)

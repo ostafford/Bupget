@@ -225,6 +225,152 @@ class UpBankAPI:
                 balances[account_id] = balance
         
         return balances
+    
+
+    def sync_transactions(self, user_id, days_back=30):
+        """
+        Sync transactions from Up Bank for a user.
+        
+        Args:
+            user_id (int): The user ID to sync transactions for
+            days_back (int): Number of days to look back for transactions
+                
+        Returns:
+            tuple: (new_transactions_count, updated_transactions_count)
+        """
+        from datetime import datetime, timedelta
+        from app.models import Transaction, TransactionSource, Account
+        from app.extensions import db
+        
+        try:
+            # Calculate the date range for transactions
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
+            
+            # Format dates for the API
+            since_date = start_date.strftime('%Y-%m-%dT00:00:00Z')
+            
+            # Start with empty pagination cursor
+            next_page_url = f"{self.base_url}/transactions?filter[since]={since_date}"
+            
+            created_count = 0
+            updated_count = 0
+            
+            # Get all accounts for this user to map external_id to account_id
+            accounts = Account.query.filter_by(user_id=user_id).all()
+            account_map = {account.external_id: account.id for account in accounts}
+            
+            # Fetch transactions page by page
+            while next_page_url:
+                logger.info(f"Fetching transactions page: {next_page_url}")
+                
+                # Make the API request
+                if next_page_url.startswith(self.base_url):
+                    # Full URL provided by pagination
+                    response = requests.get(next_page_url, headers=self.headers)
+                else:
+                    # Relative URL path
+                    response = requests.get(f"{self.base_url}{next_page_url}", headers=self.headers)
+                
+                if response.status_code != 200:
+                    logger.error(f"Error fetching transactions: {response.status_code}, {response.text}")
+                    break
+                
+                data = response.json()
+                transactions = data.get('data', [])
+                
+                # Process each transaction
+                for tx_data in transactions:
+                    tx_id = tx_data.get('id')
+                    if not tx_id:
+                        continue
+                    
+                    # Extract transaction details
+                    attributes = tx_data.get('attributes', {})
+                    
+                    # Get transaction date and description
+                    created_at = attributes.get('createdAt')
+                    description = attributes.get('description', 'Unknown transaction')
+                    
+                    # Try to get a more meaningful description
+                    if 'rawText' in attributes and attributes['rawText']:
+                        description = attributes['rawText']
+                    
+                    # Extract amount
+                    amount_data = attributes.get('amount', {})
+                    value = amount_data.get('value', '0')
+                    currency = amount_data.get('currencyCode', 'AUD')
+                    
+                    # Convert to float
+                    try:
+                        amount = float(value)
+                    except (ValueError, TypeError):
+                        amount = 0.0
+                    
+                    # Determine account ID
+                    account_id = None
+                    relationships = tx_data.get('relationships', {})
+                    account_data = relationships.get('account', {}).get('data', {})
+                    
+                    if account_data and 'id' in account_data:
+                        external_account_id = account_data['id']
+                        account_id = account_map.get(external_account_id)
+                    
+                    # Parse the transaction date
+                    try:
+                        tx_date = datetime.fromisoformat(created_at.replace('Z', '+00:00')).date()
+                    except (ValueError, TypeError, AttributeError):
+                        tx_date = datetime.now().date()
+                    
+                    # Check if transaction already exists
+                    existing_tx = Transaction.query.filter_by(
+                        external_id=tx_id,
+                        user_id=user_id
+                    ).first()
+                    
+                    if existing_tx:
+                        # Update existing transaction
+                        existing_tx.description = description
+                        existing_tx.amount = amount
+                        existing_tx.date = tx_date
+                        existing_tx.account_id = account_id
+                        existing_tx.updated_at = datetime.utcnow()
+                        
+                        updated_count += 1
+                    else:
+                        # Create new transaction
+                        new_tx = Transaction(
+                            external_id=tx_id,
+                            date=tx_date,
+                            description=description,
+                            amount=amount,
+                            source=TransactionSource.UP_BANK,
+                            user_id=user_id,
+                            account_id=account_id,
+                            created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow()
+                        )
+                        db.session.add(new_tx)
+                        
+                        created_count += 1
+                
+                # Commit batch of transactions
+                db.session.commit()
+                
+                # Check for pagination
+                links = data.get('links', {})
+                next_page_url = links.get('next')
+                
+                # If no more pages, stop
+                if not next_page_url:
+                    break
+            
+            return created_count, updated_count
+        
+        except Exception as e:
+            logger.error(f"Error syncing transactions: {str(e)}")
+            db.session.rollback()
+            return 0, 0
 
 
 # Helper function to get an API instance

@@ -84,7 +84,7 @@ budget_app/
 - Up Bank account (for API access)
 
 ### Up Bank API Integration
-
+`
 To connect to the Up Bank API:
 
 1. Go to the [Up Bank developer portal](https://developer.up.com.au/) and create a personal access token.

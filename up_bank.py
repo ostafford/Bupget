@@ -21,7 +21,7 @@ up_bank_bp = Blueprint('up_bank', __name__)
 
 @up_bank_bp.route('/')
 @login_required
-def index():
+def view_upbank_dashboard():
     """Up Bank integration overview page."""
     # Check if user has an Up Bank token
     has_token = current_user.get_up_bank_token() is not None
@@ -52,7 +52,7 @@ def index():
 
 @up_bank_bp.route('/connect', methods=['GET', 'POST'])
 @login_required
-def connect():
+def view_upbank_connect():
     """Connect to Up Bank API page."""
     if request.method == 'POST':
         # Get the token from the form
@@ -77,7 +77,7 @@ def connect():
 
 @up_bank_bp.route('/sync', methods=['POST'])
 @login_required
-def sync():
+def action_upbank_sync():
     """Sync transactions from Up Bank."""
     # Get parameters from the form
     days_back = int(request.form.get('days_back', 30))
@@ -116,7 +116,7 @@ def sync():
 
 @up_bank_bp.route('/transactions')
 @login_required
-def transactions():
+def api_upbank_transactions():
     """View Up Bank transactions."""
     # Get transactions grouped by week
     transactions_by_week = get_transactions_by_week(current_user.id, weeks=4)
@@ -140,7 +140,7 @@ def transactions():
 
 @up_bank_bp.route('/token-rotation-check')
 @login_required
-def token_rotation_check():
+def api_upbank_token_status():
     """Check if the current user's token needs rotation."""
     # Get token rotation info
     rotation_info = check_token_rotation_needed(current_user)
@@ -150,7 +150,7 @@ def token_rotation_check():
 
 @up_bank_bp.route('/disconnect', methods=['POST'])
 @login_required
-def disconnect():
+def action_upbank_disconnect():
     """Disconnect from Up Bank."""
     # Clear the user's Up Bank token
     current_user.set_up_bank_token(None)
@@ -160,7 +160,7 @@ def disconnect():
 
 @up_bank_bp.route('/accounts')
 @login_required
-def accounts():
+def view_upbank_accounts():
     """View Up Bank accounts."""
     # Get user's Up Bank accounts
     accounts = Account.query.filter_by(
@@ -174,40 +174,41 @@ def accounts():
 
 @up_bank_bp.route('/accounts_detail/<int:account_id>')
 @login_required
-def account_detail(account_id):
+def view_upbank_account_detail(account_id):
     """View details for a specific account."""
     # Get the account
     account = Account.query.filter_by(
         id=account_id,
         user_id=current_user.id
     ).first_or_404()
-    
+
     # Get balance history for visualization
     from app.models.account import AccountBalanceHistory
-    
+
     # Get last 30 days of history
     today = datetime.utcnow().date()
     thirty_days_ago = today - timedelta(days=30)
-    
+
     history = AccountBalanceHistory.query.filter(
         AccountBalanceHistory.account_id == account.id,
         AccountBalanceHistory.date >= thirty_days_ago
     ).order_by(AccountBalanceHistory.date).all()
-    
+
     # Render the account detail template
-    return render_template('up_bank/account_detail.html', account=account, balance_history=history)
+    return render_template('up_bank/account_detail.html',
+                           account=account, balance_history=history)
 
 
 @up_bank_bp.route('/api/accounts')
 @login_required
-def api_accounts():
+def api_upbank_accounts():
     """API endpoint for Up Bank accounts."""
     # Get user's Up Bank accounts
     accounts = Account.query.filter_by(
         user_id=current_user.id,
         source=AccountSource.UP_BANK
     ).order_by(Account.name).all()
-    
+
     return jsonify({
         "accounts": [
             {
@@ -216,7 +217,8 @@ def api_accounts():
                 "balance": float(account.balance),
                 "currency": account.currency,
                 "type": account.type.value,
-                "last_synced": account.last_synced.isoformat() if account.last_synced else None,
+                "last_synced": account.last_synced.isoformat()
+                if account.last_synced else None,
                 "external_id": account.external_id
             }
             for account in accounts
@@ -226,26 +228,26 @@ def api_accounts():
 
 @up_bank_bp.route('/api/account/<int:account_id>')
 @login_required
-def api_account_detail(account_id):
+def api_upbank_account_detail(account_id):
     """API endpoint for a specific account."""
     # Get the account
     account = Account.query.filter_by(
         id=account_id,
         user_id=current_user.id
     ).first_or_404()
-    
+
     # Get balance history for visualization
     from app.models.account import AccountBalanceHistory
-    
+
     # Get last 30 days of history
     today = datetime.utcnow().date()
     thirty_days_ago = today - timedelta(days=30)
-    
+
     history = AccountBalanceHistory.query.filter(
         AccountBalanceHistory.account_id == account.id,
         AccountBalanceHistory.date >= thirty_days_ago
     ).order_by(AccountBalanceHistory.date).all()
-    
+
     return jsonify({
         "account": {
             "id": account.id,
@@ -253,9 +255,12 @@ def api_account_detail(account_id):
             "balance": float(account.balance),
             "currency": account.currency,
             "type": account.type.value,
-            "created_at": account.created_at.isoformat() if account.created_at else None,
-            "updated_at": account.updated_at.isoformat() if account.updated_at else None,
-            "last_synced": account.last_synced.isoformat() if account.last_synced else None,
+            "created_at": account.created_at.isoformat()
+            if account.created_at else None,
+            "updated_at": account.updated_at.isoformat()
+            if account.updated_at else None,
+            "last_synced": account.last_synced.isoformat()
+            if account.last_synced else None,
             "external_id": account.external_id
         },
         "balance_history": [
