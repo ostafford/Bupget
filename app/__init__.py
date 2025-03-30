@@ -6,9 +6,12 @@ configures the Flask application instance.
 """
 
 import os
+from dotenv import load_dotenv
 from flask import Flask
 from app.config import config_by_name
 from app.extensions import db, migrate, login_manager
+
+load_dotenv(verbose=True)  # Load environment variables from .env file
 
 
 def create_app(config_name='development'):
@@ -22,11 +25,19 @@ def create_app(config_name='development'):
     Returns:
         Flask: A configured Flask application instance
     """
+    # Get configuration from environment if not explicitly provided
+    if not config_name:
+        config_name = os.environ.get('FLASK_CONFIG', 'development')
+        
     # Create the Flask app instance
     app = Flask(__name__)
     
     # Load configuration based on the specified environment
     app.config.from_object(config_by_name[config_name])
+
+    # For debugging: print the database URI
+    # print(f"Initializing app with config: {config_name}")
+    # print(f"DATABASE_URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
     
     # Initialize extensions with the app
     register_extensions(app)
@@ -81,13 +92,16 @@ def register_blueprints(app):
     """
     Register blueprints (route modules) with the application.
     
+    This function registers all blueprints with their appropriate URL prefixes,
+    organizing them into logical groups for better code maintenance.
+    
     Args:
         app (Flask): The Flask application instance
     """
     # Import blueprints
     # Note: We import them here to avoid circular imports
     
-    # This will be our main blueprint for non-authenticated pages
+    # Main blueprint for non-authenticated pages
     from app.routes.main import main_bp
     app.register_blueprint(main_bp)
     
@@ -107,17 +121,21 @@ def register_blueprints(app):
     from app.routes.budget import budget_bp
     app.register_blueprint(budget_bp, url_prefix='/budget')
     
-    # API blueprint for the Up Bank integration
+    # API blueprint for general APIs
     from app.routes.api import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
-    
-    # Up Bank integration blueprint
-    from app.routes.up_bank import up_bank_bp
-    app.register_blueprint(up_bank_bp, url_prefix='/up-bank')
     
     # Calendar view blueprint
     from app.routes.calendar import calendar_bp
     app.register_blueprint(calendar_bp, url_prefix='/calendar')
+    
+    # Up Bank HTML view blueprint
+    from app.routes.upbank_views import upbank_view_bp
+    app.register_blueprint(upbank_view_bp)  # already has url_prefix='/up-bank'
+    
+    # Up Bank API blueprint
+    from app.routes.upbank_api import upbank_api_bp
+    app.register_blueprint(upbank_api_bp)  # already has url_prefix='/api/up-bank'
 
 def register_error_handlers(app):
     """

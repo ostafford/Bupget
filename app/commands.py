@@ -67,15 +67,17 @@ def verify_setup_command():
     """Verify that the application setup is working correctly."""
     # Check database connection
     try:
-        db.session.execute('SELECT 1')
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
         click.echo('✅ Database connection successful')
     except Exception as e:
         click.echo(f'❌ Database connection failed: {str(e)}')
     
     # Check environment variables
+    import os
     required_vars = ['FLASK_CONFIG', 'SECRET_KEY', 'DATABASE_URI']
     for var in required_vars:
-        if var in app.config and app.config[var]:
+        if os.environ.get(var):
             click.echo(f'✅ Environment variable {var} is set')
         else:
             click.echo(f'❌ Environment variable {var} is missing or empty')
@@ -125,14 +127,24 @@ def sync_up_bank_command(user_id, days):
         days: Number of days of history to sync
     """
     from app.services.bank_service import sync_accounts, sync_transactions
+    from app.models import User
+    
+    # Get the user
+    user = User.query.get(user_id)
+    if not user:
+        click.echo(f"User with ID {user_id} not found.")
+        return
     
     # Sync accounts
     success, message, accounts_count = sync_accounts(user_id)
     click.echo(f"Accounts: {message}")
     
-    # Sync transactions
-    success, message, tx_count = sync_transactions(user_id, days_back=days)
-    click.echo(f"Transactions: {message}")
+    if success:
+        # Sync transactions
+        success, message, tx_count = sync_transactions(user_id, days_back=days)
+        click.echo(f"Transactions: {message}")
+    else:
+        click.echo("Skipping transaction sync because account sync failed.")
 
 
 @click.command('test-upbank-auth')
@@ -408,6 +420,70 @@ def test_get_accounts_command(user_id):
             click.echo("Failed to retrieve account details.")
 
 
+@click.command('test-sync-transactions')
+@click.argument('user_id', type=int)
+@click.option('--days', default=30, help='Number of days of history to sync')
+@click.option('--verbose', is_flag=True, help='Show detailed transaction information')
+@with_appcontext
+def test_sync_transactions_command(user_id, days, verbose):
+    """
+    Test syncing transactions from Up Bank for a user.
+    
+    Args:
+        user_id: The user ID
+        days: Number of days of history to sync
+        verbose: Whether to show detailed transaction information
+    """
+    from app.models import User, Transaction
+    
+    # Get the user
+    user = User.query.get(user_id)
+    if not user:
+        click.echo(f"User with ID {user_id} not found.")
+        return
+    
+    # Get the token
+    token = user.get_up_bank_token()
+    if not token:
+        click.echo("Up Bank token not found for user.")
+        return
+    
+    click.echo(f"Testing transaction syncing for user {user.full_name} (ID: {user_id})")
+    
+    # Get existing transaction count
+    existing_count = Transaction.query.filter_by(user_id=user_id).count()
+    click.echo(f"User currently has {existing_count} transactions in the database.")
+    
+    # Initialize the API
+    from app.api.up_bank import get_up_bank_api
+    api = get_up_bank_api(token=token)
+    
+    # Test transaction syncing
+    click.echo(f"Syncing transactions from the past {days} days...")
+    created, updated = api.sync_transactions(user_id, days_back=days)
+    
+    # Show results
+    click.echo(f"Sync completed: {created} new transactions, {updated} updated transactions")
+    
+    # Get new transaction count
+    new_count = Transaction.query.filter_by(user_id=user_id).count()
+    click.echo(f"User now has {new_count} transactions in the database.")
+    
+    # Show some transaction details if verbose
+    if verbose and created > 0:
+        click.echo("\nMost recent transactions:")
+        transactions = Transaction.query.filter_by(user_id=user_id).order_by(
+            Transaction.date.desc()
+        ).limit(5).all()
+        
+        for tx in transactions:
+            click.echo(f"  Date: {tx.date}")
+            click.echo(f"  Description: {tx.description}")
+            click.echo(f"  Amount: {tx.amount}")
+            click.echo(f"  Source: {tx.source.value}")
+            click.echo("  ------------------------------")
+
+
 def register_commands(app_instance):
     """Register CLI commands with the Flask application."""
     global app
@@ -426,3 +502,5 @@ def register_commands(app_instance):
     app.cli.add_command(reset_db_command)
     app.cli.add_command(sync_accounts_command)
     app.cli.add_command(list_accounts_command)
+    app.cli.add_command(test_sync_transactions_command)
+    app.cli.add_command(test_get_accounts_command)

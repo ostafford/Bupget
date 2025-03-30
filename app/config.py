@@ -24,7 +24,7 @@ class Config:
     
     # Database settings - using MySQL
     # SQLAlchemy will use these settings to connect to the database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI', 'mysql://user:password@localhost/budget_app')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI')
     
     # Disable SQLAlchemy modification tracking to save resources
     SQLALCHEMY_TRACK_MODIFICATIONS = False

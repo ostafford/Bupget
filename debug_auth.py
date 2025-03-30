@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.DEBUG,
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('auth_debug')
 
+
 def debug_auth_process(token):
     """Debug the authentication process step by step."""
     logger.info("Starting authentication debugging process")
@@ -109,6 +110,7 @@ def debug_auth_process(token):
         logger.error(f"Error during encryption demo: {str(e)}")
     
     return result
+
 
 if __name__ == "__main__":
     # Get token from command line argument or environment variable
