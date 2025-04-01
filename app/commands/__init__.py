@@ -30,3 +30,8 @@ def register_commands(app):
     # Import and register webhook commands
     from app.commands.webhook import register_webhook_commands
     register_webhook_commands(app)
+
+    # Import and register Up Bank test commands
+    from app.commands.upbank_test import register_upbank_test_commands
+    register_upbank_test_commands(app)
+
