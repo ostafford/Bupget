@@ -249,6 +249,7 @@ class UpBankAPI:
         backoff=2,
         jitter=0.1
     )
+        
     def validate_token(self):
         """
         Validate the Up Bank API token.
@@ -269,16 +270,39 @@ class UpBankAPI:
                 "valid": False,
                 "message": "Token is invalid or expired"
             }
-        except Exception as e:
-            # Create a standardized error response
-            error_response = handle_api_exception(
-                e, 
-                "Up Bank API", 
-                "validate_token"
+        except UpBankError as e:
+            error_msg = str(e).lower()
+            
+            # Check for common authentication failure indicators
+            auth_failure_indicators = [
+                'invalid token', 
+                'authentication failed', 
+                'permission denied', 
+                'unauthorized', 
+                'token does not have'
+            ]
+            
+            # Check if any indicator is in the error message
+            is_auth_error = any(
+                indicator in error_msg 
+                for indicator in auth_failure_indicators
             )
+            
+            # Return a consistent error response
             return {
                 "valid": False,
-                "message": error_response.message
+                "message": (
+                    "Token is invalid or expired" 
+                    if is_auth_error 
+                    else "Token validation failed"
+                )
+            }
+        except Exception as e:
+            # Create a standardized error response for unexpected errors
+            logger.error(f"Unexpected error in token validation: {str(e)}")
+            return {
+                "valid": False,
+                "message": "Token validation encountered an unexpected error"
             }
 
     @retry(
