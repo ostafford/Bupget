@@ -44,6 +44,7 @@ class User(db.Model, UserMixin):
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
+    up_bank_connected_at = db.Column(db.DateTime, nullable=True)
     
    # Relationships to other models
     accounts = db.relationship('Account', back_populates='user', cascade='all, delete-orphan')

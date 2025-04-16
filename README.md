@@ -21,59 +21,32 @@ This application allows users to:
 
 ## Project Structure
 
-```
-budget_app/
-│
-├── app/                        # Application package
-│   ├── __init__.py            # Flask application factory
-│   ├── config.py              # Configuration settings
-│   ├── extensions.py          # Flask extensions initialization
-│   ├── commands.py            # CLI commands
-│   │
-│   ├── models/                # Database models
-│   │   ├── __init__.py
-│   │   ├── user.py            # User model
-│   │   ├── account.py         # Bank account model
-│   │   ├── transaction.py     # Transaction model
-│   │   ├── recurring.py       # Recurring expense model
-│   │   └── forecast.py        # Forecast models
-│   │
-│   ├── api/                   # API integration
-│   │   ├── __init__.py
-│   │   └── up_bank.py         # Up Bank API connector
-│   │
-│   ├── services/              # Business logic
-│   │   ├── __init__.py
-│   │   └── bank_service.py    # Banking service functions
-│   │
-│   ├── routes/                # Route definitions
-│   │   ├── __init__.py
-│   │   ├── main.py            # Main routes
-│   │   ├── auth.py            # Authentication routes
-│   │   ├── dashboard.py       # Dashboard routes
-│   │   ├── transactions.py    # Transaction management
-│   │   ├── budget.py          # Budget management
-│   │   ├── up_bank.py         # Up Bank integration
-│   │   ├── calendar.py        # Calendar view
-│   │   └── api.py             # API endpoints
-│   │
-│   ├── static/                # Static assets
-│   │   ├── css/
-│   │   ├── js/
-│   │   └── img/
-│   │
-│   └── templates/             # HTML templates
-│
-├── migrations/                # Database migration files
-│
-├── tests/                     # Test suite
-│
-├── .env                       # Environment variables (not in git)
-├── .env.example               # Example environment variables
-├── .gitignore                 # Git ignore file
-├── requirements.txt           # Python dependencies
-└── run.py                     # Application entry point
-```
+The Budget App follows a modular structure:
+
+- **Flask Application Factory**: The application is created using the factory pattern in `app/__init__.py`.
+- **Blueprints**: Routes are organized into logical blueprints:
+  - `main.py`: Main pages (home, about)
+  - `auth.py`: Authentication (login, registration)
+  - `dashboard.py`: User dashboard 
+  - `calendar.py`: Calendar view and API endpoints
+  - `transactions.py`: Transaction management
+  - `budget.py`: Budget management
+  - `upbank.py`: Up Bank integration (both UI views and API endpoints)
+- **Models**: Database models in the `app/models/` directory.
+- **Services**: Business logic in the `app/services/` directory, organized by domain:
+  - `auth_service.py`: Authentication functions
+  - `bank_service.py`: Banking operations
+  - `transaction_service.py`: Transaction processing
+  - `budget_service.py`: Budget calculations
+  - `forecast_service.py`: Financial forecasting
+- **API Integration**: External API integration in the `app/api/` directory:
+  - `up_bank.py`: Up Bank API client
+  - `webhooks.py`: Webhook handling for real-time updates
+  - `error_handling.py`: Shared error handling utilities
+- **Templates**: HTML templates in the `app/templates/` directory.
+- **Static Files**: CSS, JavaScript, and images in the `app/static/` directory:
+  - JavaScript is organized with shared utilities in `utils.js`
+- **Commands**: CLI commands in the `app/commands/` directory, organized by function.
 
 ## Setup Instructions
 
@@ -210,10 +183,11 @@ This project follows the [PEP 8](https://www.python.org/dev/peps/pep-0008/) styl
 
 ### Testing
 
-Run tests with:
+The project includes a comprehensive test suite in the `tests/` directory.
+
+To run tests:
 ```bash
 pytest
-```
 
 ### Database Migrations
 
@@ -228,6 +202,71 @@ When making changes to the database models:
    ```bash
    flask db upgrade
    ```
+
+## Error Handling
+
+The application uses a standardized approach to error handling, particularly for API integrations.
+
+### API Error Handling
+
+API errors are handled through the shared module `app/api/error_handling.py`, which provides:
+
+1. **Exception Classes**:
+   - `APIError`: Base exception for all API errors
+   - `APIAuthError`: Authentication errors
+   - `APIResponseError`: General response errors
+   - `APIRateLimitError`: Rate limiting errors
+   - `APIConnectionError`: Network and connection errors
+
+2. **Retry Mechanism**:
+   The `@retry` decorator provides automatic retries for operations that might fail transiently:
+   ```python
+   @retry(
+       exceptions=[ConnectionError, Timeout, APIConnectionError],
+       tries=3,
+       delay=2,
+       backoff=2
+   )
+   def some_function():
+       # This will retry up to 3 times if it fails with the specified exceptions
+
+### Python Style Guide
+
+We follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for Python code with these specific patterns:
+
+- **Services and Business Logic**: 
+  - Business logic goes in the `app/services/` directory
+  - Service functions should be stateless and focused on a specific domain
+  - Database operations should be wrapped in try/except blocks with rollback
+
+- **API Integration**:
+  - External API clients go in the `app/api/` directory
+  - Use the retry mechanism for operations that might fail transiently
+  - Handle errors using the standardized error response format
+
+- **Blueprints and Routes**:
+  - Route functions should be thin, delegating business logic to services
+  - Similar functionality should be grouped in the same blueprint
+  - Separate view routes (returning HTML) from API routes (returning JSON)
+
+### JavaScript Style Guide
+
+For JavaScript, we follow these patterns:
+
+- **Module Organization**:
+  - Shared utilities go in `utils.js`
+  - Page-specific functionality goes in dedicated files
+  - Use DOM content loaded event to initialize scripts
+
+- **API Communication**:
+  - Use the `ApiUtils` module for all API requests
+  - Handle errors consistently using try/catch
+  - Show user-friendly messages for errors
+
+- **UI Updates**:
+  - Use the `UIUtils` module for common UI operations
+  - Format dates and currency consistently
+  - Separate data fetching from UI rendering logic
 
 ## Troubleshooting
 
@@ -246,14 +285,28 @@ When making changes to the database models:
 
 The application logs are written to the console by default. Set the LOG_LEVEL in your .env file to control verbosity.
 
-## Future Enhancements
+## Future Development Plans
 
-Planned features for future development:
+### React Front-end Integration
 
-1. Enhanced calendar visualization with category coloring
-2. More detailed forecasting models
-3. Budget vs. actual comparisons
-4. Mobile-responsive design
+The application is being prepared for a future migration to React for the front-end:
+
+1. **Current State**: 
+   - JavaScript code has been modularized with shared utilities
+   - API communication is standardized with consistent patterns
+   - UI rendering is separated from data fetching
+
+2. **Migration Strategy**:
+   - Start with small, self-contained components (e.g., transaction list)
+   - Set up a proper build pipeline with Webpack
+   - Incrementally convert each view to React components
+   - Maintain API communication pattern through the ApiUtils module
+
+3. **Benefits of React Migration**:
+   - Improved UI reactivity and state management
+   - Better component reusability
+   - Enhanced user experience with smoother interactions
+   - Easier testing of UI components
 
 ## License
 
