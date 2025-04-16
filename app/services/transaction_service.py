@@ -536,7 +536,6 @@ def suggest_category_for_transaction(description, user_id=None):
     # No match found
     return None
 
-
 def get_recurring_transactions(user_id, min_occurrences=3, date_range_days=180):
     """
     Identify potentially recurring transactions.
@@ -635,3 +634,224 @@ def get_recurring_transactions(user_id, min_occurrences=3, date_range_days=180):
             })
     
     return recurring
+
+def process_upbank_transaction(transaction_data, user_id, account_map=None):
+    """
+    Process a transaction from the Up Bank API.
+    
+    Args:
+        transaction_data (dict): Transaction data from Up Bank API
+        user_id (int): User ID to assign the transaction to
+        account_map (dict, optional): Map of external account IDs to internal account IDs
+            
+    Returns:
+        tuple: (status, transaction_obj, is_new) 
+               where status is "created", "updated", or None if failed
+    """
+    from datetime import datetime
+    from app.models import Transaction, TransactionSource, Account
+    from app.extensions import db
+    
+    # Extract the transaction ID
+    tx_id = transaction_data.get('id')
+    if not tx_id:
+        logger.error("Transaction ID not found in data")
+        return None, None, False
+    
+    # Extract transaction details from attributes
+    attributes = transaction_data.get('attributes', {})
+    
+    # Get transaction description
+    description = attributes.get('description', 'Unknown transaction')
+    
+    # Try to get a more meaningful description
+    if 'rawText' in attributes and attributes['rawText']:
+        description = attributes['rawText']
+    
+    # Extract date
+    created_at = attributes.get('createdAt')
+    if not created_at:
+        logger.error("Transaction date not found")
+        return None, None, False
+        
+    try:
+        tx_date = datetime.fromisoformat(created_at.replace('Z', '+00:00')).date()
+    except (ValueError, TypeError, AttributeError):
+        tx_date = datetime.now().date()
+    
+    # Extract amount
+    amount_data = attributes.get('amount', {})
+    value = amount_data.get('value', '0')
+    
+    try:
+        amount = float(value)
+    except (ValueError, TypeError):
+        amount = 0.0
+    
+    # Determine account ID
+    account_id = None
+    
+    # If account_map not provided, try to determine account from relationships
+    if account_map is None:
+        account_map = {}
+        relationships = transaction_data.get('relationships', {})
+        account_data = relationships.get('account', {}).get('data', {})
+        
+        if account_data and 'id' in account_data:
+            external_account_id = account_data['id']
+            account = Account.query.filter_by(
+                external_id=external_account_id,
+                user_id=user_id
+            ).first()
+            
+            if account:
+                account_id = account.id
+    else:
+        # Use provided account_map
+        relationships = transaction_data.get('relationships', {})
+        account_data = relationships.get('account', {}).get('data', {})
+        
+        if account_data and 'id' in account_data:
+            external_account_id = account_data['id']
+            account_id = account_map.get(external_account_id)
+    
+    # Check if transaction already exists
+    existing_tx = Transaction.query.filter_by(
+        external_id=tx_id,
+        user_id=user_id
+    ).first()
+    
+    if existing_tx:
+        # Update existing transaction
+        existing_tx.description = description
+        existing_tx.amount = amount
+        existing_tx.date = tx_date
+        existing_tx.account_id = account_id
+        existing_tx.updated_at = datetime.utcnow()
+        
+        # If category not already set, try to categorize
+        if not existing_tx.category_id:
+            category_id = suggest_category_for_transaction(description, user_id)
+            if category_id:
+                existing_tx.category_id = category_id
+        
+        return "updated", existing_tx, False
+    else:
+        # Create new transaction
+        # Try to categorize the transaction
+        category_id = suggest_category_for_transaction(description, user_id)
+        
+        new_tx = Transaction(
+            external_id=tx_id,
+            date=tx_date,
+            description=description,
+            amount=amount,
+            source=TransactionSource.UP_BANK,
+            user_id=user_id,
+            account_id=account_id,
+            category_id=category_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        return "created", new_tx, True
+
+
+def handle_balance_update(transaction, account=None):
+    """
+    Update account balance for a transaction.
+    
+    Args:
+        transaction (Transaction): The transaction
+        account (Account, optional): The account (if already loaded)
+        
+    Returns:
+        bool: True if balance updated, False otherwise
+    """
+    from app.extensions import db
+    from app.models import Account
+    
+    if not transaction.account_id:
+        return False
+    
+    # Load account if not provided
+    if account is None:
+        account = Account.query.get(transaction.account_id)
+        
+    if not account:
+        return False
+    
+    # Update account balance
+    account.balance += transaction.amount
+    account.updated_at = datetime.utcnow()
+    
+    return True
+
+
+def save_transaction(transaction, is_new=True, update_balance=True):
+    """
+    Save a transaction to the database and handle related updates.
+    
+    Args:
+        transaction (Transaction): The transaction to save
+        is_new (bool): Whether this is a new transaction
+        update_balance (bool): Whether to update account balance
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    from app.extensions import db
+    from app.models.transaction import WeeklySummary
+    
+    try:
+        # Add new transaction to session if it's new
+        if is_new:
+            db.session.add(transaction)
+        
+        # Save the transaction
+        db.session.commit()
+        
+        # Update account balance if needed
+        if update_balance and transaction.account_id:
+            handle_balance_update(transaction)
+            db.session.commit()
+        
+        # Update weekly summary
+        WeeklySummary.calculate_for_week(
+            transaction.user_id, 
+            transaction.week_start_date
+        )
+        
+        return True
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error saving transaction: {str(e)}")
+        return False
+
+
+def process_and_save_upbank_transaction(transaction_data, user_id, account_map=None):
+    """
+    Process and save a transaction from Up Bank API.
+    
+    This is a higher-level function that combines processing and saving.
+    
+    Args:
+        transaction_data (dict): Transaction data from Up Bank API
+        user_id (int): User ID
+        account_map (dict, optional): Map of external account IDs to internal account IDs
+        
+    Returns:
+        tuple: (success, status, transaction)
+    """
+    # Process the transaction
+    status, transaction, is_new = process_upbank_transaction(
+        transaction_data, user_id, account_map
+    )
+    
+    if not status or not transaction:
+        return False, None, None
+    
+    # Save the transaction and handle related updates
+    success = save_transaction(transaction, is_new)
+    
+    return success, status, transaction

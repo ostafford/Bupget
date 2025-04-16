@@ -39,7 +39,7 @@
                         <a class="nav-link" href="{{ url_for('budget.index') }}">Budget</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('up_bank.index') }}">Up Bank</a>
+                        <a class="nav-link" href="{{ url_for('upbank.index') }}">Up Bank</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -96,6 +96,8 @@
 
     <!-- Bootstrap JS with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Utility JS -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block extra_js %}{% endblock %}

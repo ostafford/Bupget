@@ -17,7 +17,7 @@
                     <a href="{{ url_for('calendar.index') }}" class="list-group-item list-group-item-action">Calendar</a>
                     <a href="{{ url_for('transactions.index') }}" class="list-group-item list-group-item-action">Transactions</a>
                     <a href="{{ url_for('budget.index') }}" class="list-group-item list-group-item-action">Budget</a>
-                    <a href="{{ url_for('up_bank.index') }}" class="list-group-item list-group-item-action">Up Bank Connection</a>
+                    <a href="{{ url_for('upbank.index') }}" class="list-group-item list-group-item-action">Up Bank Connection</a>
                 </div>
             </div>
             
@@ -27,7 +27,7 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('up_bank.connect') }}" class="btn btn-primary">Connect to Up Bank</a>
+                        <a href="{{ url_for('upbank.connect') }}" class="btn btn-primary">Connect to Up Bank</a>
                         <a href="{{ url_for('up_bank.sync') }}" class="btn btn-outline-primary">Sync Transactions</a>
                     </div>
                 </div>
@@ -64,7 +64,7 @@
                         </div>
                         <div class="card-body">
                             <p class="text-muted">Not connected to Up Bank.</p>
-                            <a href="{{ url_for('up_bank.connect') }}" class="btn btn-sm btn-outline-primary">Connect Now</a>
+                            <a href="{{ url_for('upbank.connect') }}" class="btn btn-sm btn-outline-primary">Connect Now</a>
                         </div>
                     </div>
                 </div>

@@ -125,13 +125,8 @@ def register_blueprints(app):
     from app.routes.calendar import calendar_bp
     app.register_blueprint(calendar_bp, url_prefix='/calendar')
     
-    # Up Bank HTML view blueprint
-    from app.routes.upbank_views import upbank_view_bp
-    app.register_blueprint(upbank_view_bp)  # already has url_prefix='/up-bank'
-    
-    # Up Bank API blueprint
-    from app.routes.upbank_api import upbank_api_bp
-    app.register_blueprint(upbank_api_bp)  # already has url_prefix='/api/up-bank'
+    from app.routes.upbank import upbank_bp
+    app.register_blueprint(upbank_bp)
 
 def register_error_handlers(app):
     """

@@ -13,7 +13,7 @@ from flask import current_app, request
 from app.extensions import db
 from app.models import User, Transaction, Account
 from app.api.up_bank import get_up_bank_api, UpBankError
-from app.utils.retry import retry, handle_api_exception
+from app.api.error_handling import retry, handle_api_exception, APIErrorResponse
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -305,140 +305,15 @@ def process_up_bank_transaction(transaction_data, user_id):
     Returns:
         bool: True if successful, False otherwise
     """
-    # Similar to the logic in sync_transactions but for a single transaction
-    from app.models import Transaction, TransactionSource, Account, TransactionCategory
+    from app.services.transaction_service import process_and_save_upbank_transaction
     
     try:
-        # Extract the transaction ID
-        tx_id = transaction_data.get('id')
-        if not tx_id:
-            logger.error("Transaction ID not found in data")
-            return False
+        # Use the consolidated service function to process and save the transaction
+        success, status, transaction = process_and_save_upbank_transaction(
+            transaction_data, user_id
+        )
         
-        # Extract transaction details from attributes
-        attributes = transaction_data.get('attributes', {})
-        
-        # Get transaction description
-        description = attributes.get('description', 'Unknown transaction')
-        
-        # Try to get a more meaningful description
-        if 'rawText' in attributes and attributes['rawText']:
-            description = attributes['rawText']
-        
-        # Extract date
-        created_at = attributes.get('createdAt')
-        if not created_at:
-            logger.error("Transaction date not found")
-            return False
-            
-        try:
-            tx_date = datetime.fromisoformat(created_at.replace('Z', '+00:00')).date()
-        except (ValueError, TypeError, AttributeError):
-            tx_date = datetime.now().date()
-        
-        # Extract amount
-        amount_data = attributes.get('amount', {})
-        value = amount_data.get('value', '0')
-        
-        try:
-            amount = float(value)
-        except (ValueError, TypeError):
-            amount = 0.0
-        
-        # Determine account ID
-        account_id = None
-        relationships = transaction_data.get('relationships', {})
-        account_data = relationships.get('account', {}).get('data', {})
-        
-        if account_data and 'id' in account_data:
-            external_account_id = account_data['id']
-            account = Account.query.filter_by(
-                external_id=external_account_id,
-                user_id=user_id
-            ).first()
-            
-            if account:
-                account_id = account.id
-        
-        # Use a transaction block to ensure database consistency
-        try:
-            # Check if transaction already exists
-            existing_tx = Transaction.query.filter_by(
-                external_id=tx_id,
-                user_id=user_id
-            ).first()
-            
-            if existing_tx:
-                # Update existing transaction
-                existing_tx.description = description
-                existing_tx.amount = amount
-                existing_tx.date = tx_date
-                existing_tx.account_id = account_id
-                existing_tx.updated_at = datetime.utcnow()
-                
-                # If category not already set, try to categorize
-                if not existing_tx.category_id:
-                    from app.services.transaction_service import suggest_category_for_transaction
-                    category_id = suggest_category_for_transaction(description, user_id)
-                    if category_id:
-                        existing_tx.category_id = category_id
-                
-                db.session.commit()
-                
-                # Update account balance if needed
-                if account_id:
-                    account = Account.query.get(account_id)
-                    if account:
-                        # Calculate balance change
-                        account.updated_at = datetime.utcnow()
-                        db.session.commit()
-                
-                # Update weekly summary
-                from app.models.transaction import WeeklySummary
-                WeeklySummary.calculate_for_week(user_id, existing_tx.week_start_date)
-                
-                return True
-            else:
-                # Create new transaction
-                # Try to categorize the transaction
-                from app.services.transaction_service import suggest_category_for_transaction
-                category_id = suggest_category_for_transaction(description, user_id)
-                
-                new_tx = Transaction(
-                    external_id=tx_id,
-                    date=tx_date,
-                    description=description,
-                    amount=amount,
-                    source=TransactionSource.UP_BANK,
-                    user_id=user_id,
-                    account_id=account_id,
-                    category_id=category_id,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
-                )
-                
-                db.session.add(new_tx)
-                db.session.commit()
-                
-                # Update account balance if needed
-                if account_id:
-                    account = Account.query.get(account_id)
-                    if account:
-                        account.balance += amount
-                        account.updated_at = datetime.utcnow()
-                        db.session.commit()
-                
-                # Update weekly summary
-                from app.models.transaction import WeeklySummary
-                WeeklySummary.calculate_for_week(user_id, new_tx.week_start_date)
-                
-                return True
-        except Exception as db_error:
-            # Roll back the transaction in case of error
-            db.session.rollback()
-            logger.error(f"Database error in process_up_bank_transaction: {str(db_error)}")
-            raise  # Retry the operation
-    
+        return success
     except Exception as e:
         logger.error(f"Error processing Up Bank transaction: {str(e)}")
         # Don't roll back here since we're outside the transaction

@@ -11,40 +11,21 @@ import json
 from requests.exceptions import RequestException, ConnectionError, Timeout, HTTPError
 from flask import current_app
 
-from app.utils.retry import retry, handle_api_exception, APIErrorResponse
+from app.api.error_handling import (
+    APIError, APIAuthError, APIResponseError, APIRateLimitError, APIConnectionError,
+    retry, handle_api_exception, parse_error_response
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class UpBankError(Exception):
-    """Base exception for Up Bank API errors."""
-    pass
-
-
-class UpBankAuthError(UpBankError):
-    """Exception for authentication errors."""
-    pass
-
-
-class UpBankAPIError(UpBankError):
-    """Exception for API errors."""
-    def __init__(self, message, status_code=None, response=None):
-        self.status_code = status_code
-        self.response = response
-        super().__init__(message)
-
-
-class UpBankRateLimitError(UpBankAPIError):
-    """Exception for rate limit errors."""
-    def __init__(self, message, retry_after=None, **kwargs):
-        self.retry_after = retry_after
-        super().__init__(message, **kwargs)
-
-
-class UpBankConnectionError(UpBankError):
-    """Exception for connection errors."""
-    pass
+# Alias the error classes for backwards compatibility
+UpBankError = APIError
+UpBankAuthError = APIAuthError
+UpBankAPIError = APIResponseError
+UpBankRateLimitError = APIRateLimitError
+UpBankConnectionError = APIConnectionError
 
 
 class UpBankAPI:
@@ -171,17 +152,7 @@ class UpBankAPI:
             UpBankAPIError: For other API errors
         """
         status_code = response.status_code
-        error_message = f"API error: {status_code}"
-        
-        # Try to get error details from response
-        try:
-            error_data = response.json()
-            if 'errors' in error_data and error_data['errors']:
-                error_detail = error_data['errors'][0].get('detail', 'Unknown error')
-                error_message = f"API error ({status_code}): {error_detail}"
-        except:
-            # If we can't parse the JSON, use the status code and text
-            error_message = f"API error ({status_code}): {response.text}"
+        error_message, _ = parse_error_response(response, "Up Bank API error")
         
         # Log the error
         logger.error(error_message)
@@ -572,98 +543,27 @@ class UpBankAPI:
         Returns:
             str: "created" if a new transaction was created, "updated" if updated, None if failed
         """
-        from datetime import datetime
-        from app.models import Transaction, TransactionSource
+        from app.services.transaction_service import process_upbank_transaction, save_transaction
         from app.extensions import db
         
-        # Extract the transaction ID
-        tx_id = transaction_data.get('id')
-        if not tx_id:
-            logger.error("Transaction ID not found in data")
-            return None
-        
-        # Extract transaction details from attributes
-        attributes = transaction_data.get('attributes', {})
-        
-        # Get transaction description
-        description = attributes.get('description', 'Unknown transaction')
-        
-        # Try to get a more meaningful description
-        if 'rawText' in attributes and attributes['rawText']:
-            description = attributes['rawText']
-        
-        # Extract date
-        created_at = attributes.get('createdAt')
-        if not created_at:
-            logger.error("Transaction date not found")
-            return None
-            
         try:
-            tx_date = datetime.fromisoformat(created_at.replace('Z', '+00:00')).date()
-        except (ValueError, TypeError, AttributeError):
-            tx_date = datetime.now().date()
-        
-        # Extract amount
-        amount_data = attributes.get('amount', {})
-        value = amount_data.get('value', '0')
-        
-        try:
-            amount = float(value)
-        except (ValueError, TypeError):
-            amount = 0.0
-        
-        # Determine account ID
-        account_id = None
-        relationships = transaction_data.get('relationships', {})
-        account_data = relationships.get('account', {}).get('data', {})
-        
-        if account_data and 'id' in account_data:
-            external_account_id = account_data['id']
-            account_id = account_map.get(external_account_id)
-        
-        # Check if transaction already exists
-        existing_tx = Transaction.query.filter_by(
-            external_id=tx_id,
-            user_id=user_id
-        ).first()
-        
-        if existing_tx:
-            # Update existing transaction
-            existing_tx.description = description
-            existing_tx.amount = amount
-            existing_tx.date = tx_date
-            existing_tx.account_id = account_id
-            existing_tx.updated_at = datetime.utcnow()
-            
-            # If category not already set, try to categorize
-            if not existing_tx.category_id:
-                from app.services.transaction_service import suggest_category_for_transaction
-                category_id = suggest_category_for_transaction(description, user_id)
-                if category_id:
-                    existing_tx.category_id = category_id
-            
-            return "updated"
-        else:
-            # Create new transaction
-            # Try to categorize the transaction
-            from app.services.transaction_service import suggest_category_for_transaction
-            category_id = suggest_category_for_transaction(description, user_id)
-            
-            new_tx = Transaction(
-                external_id=tx_id,
-                date=tx_date,
-                description=description,
-                amount=amount,
-                source=TransactionSource.UP_BANK,
-                user_id=user_id,
-                account_id=account_id,
-                category_id=category_id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+            # Process the transaction using the service function
+            status, transaction, is_new = process_upbank_transaction(
+                transaction_data, user_id, account_map
             )
             
-            db.session.add(new_tx)
-            return "created"
+            if not status or not transaction:
+                return None
+            
+            # Save the transaction
+            if save_transaction(transaction, is_new):
+                return status
+            else:
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error processing transaction: {str(e)}")
+            return None
 
 
 # Helper function to get an API instance
